@@ -8,6 +8,68 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Heroicons for modern icons -->
+    <script src="https://unpkg.com/heroicons@2.0.18/24/outline/index.js" type="module"></script>
+    
+    <!-- PDF.js for PDF parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- mammoth.js for DOCX parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(99, 102, 241, 0.6); }
+        }
+        @keyframes dotPulse {
+            0%, 20% { opacity: 0.3; }
+            50% { opacity: 1; }
+            80%, 100% { opacity: 0.3; }
+        }
+        .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+        .animate-slideIn { animation: slideIn 0.5s ease-out; }
+        .animate-dot-1 { animation: dotPulse 1.4s infinite; animation-delay: 0s; }
+        .animate-dot-2 { animation: dotPulse 1.4s infinite; animation-delay: 0.2s; }
+        .animate-dot-3 { animation: dotPulse 1.4s infinite; animation-delay: 0.4s; }
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .glass-dark {
+            background: rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 50%, #f0f4f8 100%);
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+    
     <!-- React and ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -64,12 +126,12 @@
         // Configuration - REPLACE WITH YOUR VALUES
         const APP_ID = 'resume-tailor-v1';
         const FIREBASE_CONFIG = {
-            apiKey: "YOUR_FIREBASE_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyALXDoW17ultZ3rlSNr9oL4GE6DLCQa3tI",
+            authDomain: "resume-tailor-f4f7c.firebaseapp.com",
+            projectId: "resume-tailor-f4f7c",
+            storageBucket: "resume-tailor-f4f7c.firebasestorage.app",
+            messagingSenderId: "697064626570",
+            appId: "1:697064626570:web:b9c65f441c8561bab51073"
         };
 
         // Constants
@@ -91,7 +153,16 @@
             const [isGenerating, setIsGenerating] = useState(false);
             const [error, setError] = useState(null);
             const [isLoading, setIsLoading] = useState(true);
+            const [toast, setToast] = useState(null);
+            const [uploadMode, setUploadMode] = useState(false);
+            const [uploadedFileName, setUploadedFileName] = useState('');
             const unsubscribeRef = useRef(null);
+            
+            // Toast notification function
+            const showToast = (message, type = 'success') => {
+                setToast({ message, type });
+                setTimeout(() => setToast(null), 4000);
+            };
 
             // Initialize authentication
             useEffect(() => {
@@ -200,7 +271,7 @@
                         updated_at: serverTimestamp()
                     }, { merge: true });
 
-                    alert(`Successfully added ${PURCHASE_BUNDLE} credits! Total: ${currentCredits + PURCHASE_BUNDLE}`);
+                    showToast(`Successfully added ${PURCHASE_BUNDLE} credits! Total: ${currentCredits + PURCHASE_BUNDLE}`, 'success');
                 } catch (error) {
                     console.error('Error purchasing credits:', error);
                     setError('Failed to purchase credits. Please try again.');
@@ -276,90 +347,309 @@
                 if (!tailoredText) return;
 
                 navigator.clipboard.writeText(tailoredText).then(() => {
-                    alert('Copied to clipboard!');
+                    showToast('Copied to clipboard!', 'success');
                 }).catch((error) => {
                     console.error('Failed to copy:', error);
-                    setError('Failed to copy to clipboard.');
+                    showToast('Failed to copy to clipboard.', 'error');
                 });
             };
 
+            // Handle file upload
+            const handleFileUpload = async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // Check file size (10MB limit)
+                if (file.size > 10 * 1024 * 1024) {
+                    showToast('File size exceeds 10MB limit. Please upload a smaller file.', 'error');
+                    return;
+                }
+
+                setUploadedFileName(file.name);
+                setError(null);
+                setIsGenerating(true);
+
+                try {
+                    let extractedText = '';
+
+                    if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+                        // Plain text file
+                        extractedText = await file.text();
+                    } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+                        // PDF parsing using pdf.js
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        const numPages = pdf.numPages;
+                        
+                        for (let i = 1; i <= numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => item.str).join(' ');
+                            extractedText += pageText + '\n\n';
+                        }
+                    } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx')) {
+                        // DOCX parsing using mammoth
+                        const arrayBuffer = await file.arrayBuffer();
+                        const result = await mammoth.extractRawText({ arrayBuffer });
+                        extractedText = result.value;
+                    } else {
+                        showToast('Unsupported file type. Please upload .txt, .pdf, or .docx files.', 'error');
+                        setIsGenerating(false);
+                        return;
+                    }
+
+                    // Set the extracted text to the resume section
+                    setResumeSection(extractedText);
+                    showToast(`File "${file.name}" loaded successfully!`, 'success');
+                } catch (error) {
+                    console.error('Error reading file:', error);
+                    showToast('Failed to read file. Please try pasting the text instead.', 'error');
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+            
+            // Character counters
+            const jdCharCount = jobDescription.length;
+            const resumeCharCount = resumeSection.length;
+
             if (isLoading) {
                 return React.createElement('div', {
-                    className: "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center"
-                }, React.createElement('div', { className: "text-center" },
-                    React.createElement('div', { className: "animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto" }),
-                    React.createElement('p', { className: "mt-4 text-gray-600" }, "Initializing...")
+                    className: "min-h-screen gradient-bg flex items-center justify-center"
+                }, React.createElement('div', { className: "text-center glass rounded-2xl p-12 shadow-2xl" },
+                    React.createElement('div', { className: "relative w-16 h-16 mx-auto mb-6" },
+                        React.createElement('div', { className: "absolute inset-0 border-4 border-indigo-200 rounded-full" }),
+                        React.createElement('div', { className: "absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin" })
+                    ),
+                    React.createElement('p', { className: "text-gray-700 font-semibold text-lg" }, "Initializing..."),
+                    React.createElement('p', { className: "text-gray-500 text-sm mt-2" }, "Setting up your workspace")
                 ));
             }
 
-            return React.createElement('div', { className: "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4" },
-                React.createElement('div', { className: "max-w-6xl mx-auto" },
+            return React.createElement('div', { className: "min-h-screen gradient-bg py-8 px-4" },
+                React.createElement('div', { className: "max-w-7xl mx-auto" },
+                    // Toast Notification
+                    toast && React.createElement('div', {
+                        className: `toast glass rounded-lg px-6 py-4 shadow-xl flex items-center gap-3 ${
+                            toast.type === 'success' ? 'bg-green-50 border border-green-200' : 
+                            toast.type === 'error' ? 'bg-red-50 border border-red-200' : 
+                            'bg-blue-50 border border-blue-200'
+                        }`
+                    },
+                        React.createElement('span', { className: "text-2xl" }, 
+                            toast.type === 'success' ? '✓' : toast.type === 'error' ? '✕' : 'ℹ'
+                        ),
+                        React.createElement('span', { 
+                            className: toast.type === 'success' ? 'text-green-800 font-medium' : 
+                                      toast.type === 'error' ? 'text-red-800 font-medium' : 
+                                      'text-blue-800 font-medium'
+                        }, toast.message)
+                    ),
                     // Header
-                    React.createElement('div', { className: "text-center mb-8" },
-                        React.createElement('h1', { className: "text-4xl font-bold text-gray-900 mb-2" }, "AI Resume Tailor"),
-                        React.createElement('p', { className: "text-gray-600" }, "Optimize your resume for ATS keyword alignment"),
-                        React.createElement('div', { className: "mt-4 inline-block bg-white rounded-lg shadow-md px-6 py-3" },
-                            React.createElement('span', { className: "text-sm text-gray-600" }, "Credits: "),
-                            React.createElement('span', { className: "text-2xl font-bold text-indigo-600" }, credits),
+                    React.createElement('div', { className: "text-center mb-10 animate-fadeIn" },
+                        React.createElement('h1', { className: "text-5xl font-extrabold text-black mb-4" }, "AI Resume Tailor"),
+                        React.createElement('p', { className: "text-gray-700 text-lg font-medium mb-6" }, "Optimize your resume for ATS keyword alignment"),
+                        React.createElement('div', { className: "inline-flex items-center gap-4 glass rounded-2xl px-8 py-4 shadow-xl card-hover" },
+                            React.createElement('div', { className: "flex items-center gap-2" },
+                                React.createElement('span', { className: "text-3xl" }, "💎"),
+                                React.createElement('div', null,
+                                    React.createElement('span', { className: "text-xs text-gray-600 block" }, "Credits"),
+                                    React.createElement('span', { className: "text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent" }, credits)
+                                )
+                            ),
+                            React.createElement('div', { className: "h-8 w-px bg-gray-300" }),
                             React.createElement('button', {
                                 onClick: simulateCreditPurchase,
-                                className: "ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
-                            }, `Buy ${PURCHASE_BUNDLE} Credits ($2.00)`)
+                                className: "px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
+                            },
+                                React.createElement('span', null, "💳"),
+                                React.createElement('span', null, `Buy ${PURCHASE_BUNDLE} Credits`)
+                            )
                         )
                     ),
                     // Error Display
                     error && React.createElement('div', {
-                        className: "mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg"
-                    }, error),
+                        className: "mb-6 glass rounded-xl border-2 border-red-300 bg-red-50 px-6 py-4 shadow-lg animate-slideIn"
+                    },
+                        React.createElement('div', { className: "flex items-center gap-3" },
+                            React.createElement('span', { className: "text-2xl" }, "⚠️"),
+                            React.createElement('p', { className: "text-red-800 font-medium" }, error)
+                        )
+                    ),
                     // Main Content
-                    React.createElement('div', { className: "grid grid-cols-1 lg:grid-cols-2 gap-6" },
+                    React.createElement('div', { className: "grid grid-cols-1 lg:grid-cols-2 gap-8" },
                         // Input Section
-                        React.createElement('div', { className: "space-y-6" },
-                            React.createElement('div', { className: "bg-white rounded-lg shadow-md p-6" },
-                                React.createElement('label', { className: "block text-sm font-semibold text-gray-700 mb-2" }, "Job Description (JD)"),
+                        React.createElement('div', { className: "space-y-6 animate-fadeIn" },
+                            React.createElement('div', { className: "glass rounded-2xl shadow-2xl p-6 card-hover border border-white/20" },
+                                React.createElement('div', { className: "flex items-center justify-between mb-4" },
+                                    React.createElement('label', { className: "flex items-center gap-2 text-base font-bold text-gray-800" },
+                                        React.createElement('span', { className: "text-xl" }, "📋"),
+                                        React.createElement('span', null, "Job Description (JD)")
+                                    ),
+                                    React.createElement('span', { className: "text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full" }, `${jdCharCount} chars`)
+                                ),
                                 React.createElement('textarea', {
                                     value: jobDescription,
                                     onChange: (e) => setJobDescription(e.target.value),
-                                    placeholder: "Paste the job description here...",
-                                    className: "w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                                    placeholder: "Paste the job description here...\n\nExample:\n- Required: 5+ years experience\n- Skills: JavaScript, React, Node.js\n- Responsibilities: Lead development team...",
+                                    className: "w-full h-64 p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-all bg-white/50 backdrop-blur-sm"
                                 })
                             ),
-                            React.createElement('div', { className: "bg-white rounded-lg shadow-md p-6" },
-                                React.createElement('label', { className: "block text-sm font-semibold text-gray-700 mb-2" }, "Current Resume Section"),
-                                React.createElement('textarea', {
+                            React.createElement('div', { className: "glass rounded-2xl shadow-2xl p-6 card-hover border border-white/20" },
+                                React.createElement('div', { className: "flex items-center justify-between mb-4" },
+                                    React.createElement('label', { className: "flex items-center gap-2 text-base font-bold text-gray-800" },
+                                        React.createElement('span', { className: "text-xl" }, "📄"),
+                                        React.createElement('span', null, "Current Resume Section")
+                                    ),
+                                    React.createElement('span', { className: "text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full" }, `${resumeCharCount} chars`)
+                                ),
+                                // Toggle buttons
+                                React.createElement('div', { className: "flex gap-2 mb-4" },
+                                    React.createElement('button', {
+                                        onClick: () => {
+                                            setUploadMode(false);
+                                            setUploadedFileName('');
+                                        },
+                                        className: `px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                            !uploadMode 
+                                                ? 'bg-indigo-600 text-white shadow-md' 
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        }`
+                                    }, "📋 Paste"),
+                                    React.createElement('button', {
+                                        onClick: () => setUploadMode(true),
+                                        className: `px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                            uploadMode 
+                                                ? 'bg-indigo-600 text-white shadow-md' 
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        }`
+                                    }, "📤 Upload")
+                                ),
+                                // Conditional rendering based on mode
+                                uploadMode ? React.createElement('div', { className: "space-y-4" },
+                                    React.createElement('div', { className: "border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-indigo-500 transition-colors" },
+                                        React.createElement('input', {
+                                            type: 'file',
+                                            accept: '.txt,.pdf,.docx',
+                                            onChange: handleFileUpload,
+                                            className: "hidden",
+                                            id: "resume-upload"
+                                        }),
+                                        React.createElement('label', {
+                                            htmlFor: "resume-upload",
+                                            className: "cursor-pointer flex flex-col items-center gap-3"
+                                        },
+                                            React.createElement('span', { className: "text-4xl" }, "📁"),
+                                            React.createElement('div', { className: "flex flex-col items-center gap-1" },
+                                                React.createElement('span', { className: "text-indigo-600 font-semibold" }, "Click to upload"),
+                                                React.createElement('span', { className: "text-gray-600 text-sm" }, "or drag and drop")
+                                            ),
+                                            React.createElement('p', { className: "text-xs text-gray-500" }, "TXT, PDF, or DOCX (Max 10MB)")
+                                        ),
+                                        uploadedFileName && React.createElement('p', { className: "mt-4 text-sm text-gray-700 font-medium" }, 
+                                            `✓ ${uploadedFileName}`
+                                        )
+                                    ),
+                                    resumeSection && React.createElement('div', { className: "mt-4" },
+                                        React.createElement('textarea', {
+                                            value: resumeSection,
+                                            onChange: (e) => setResumeSection(e.target.value),
+                                            placeholder: "Text extracted from file will appear here...",
+                                            className: "w-full h-48 p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-all bg-white/50 backdrop-blur-sm"
+                                        })
+                                    )
+                                ) : React.createElement('textarea', {
                                     value: resumeSection,
                                     onChange: (e) => setResumeSection(e.target.value),
-                                    placeholder: "Paste the resume section you want to tailor here...",
-                                    className: "w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                                    placeholder: "Paste the resume section you want to tailor here...\n\nExample:\nSoftware Engineer | Tech Corp | 2020-2024\n- Developed web applications using React\n- Collaborated with cross-functional teams...",
+                                    className: "w-full h-64 p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-all bg-white/50 backdrop-blur-sm"
                                 })
                             ),
                             React.createElement('button', {
                                 onClick: generateTailoredResume,
                                 disabled: isGenerating || credits < CREDIT_COST,
-                                className: "w-full py-4 bg-indigo-600 text-white rounded-lg font-semibold text-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                            }, isGenerating ? 'Generating...' : `Generate Tailored Resume (${CREDIT_COST} Credit)`)
+                                className: `w-full py-5 rounded-xl font-bold text-lg transition-all transform ${
+                                    isGenerating || credits < CREDIT_COST 
+                                        ? 'bg-indigo-500 text-white cursor-wait opacity-75' 
+                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl hover:shadow-2xl hover:scale-105'
+                                } flex items-center justify-center gap-3 ${isGenerating ? 'animate-pulse' : ''}`
+                            },
+                                isGenerating ? [
+                                    React.createElement('div', { 
+                                        key: 'spinner', 
+                                        className: "w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" 
+                                    }),
+                                    React.createElement('span', { 
+                                        key: 'text', 
+                                        className: "font-semibold flex items-center gap-1" 
+                                    }, 
+                                        "Generating",
+                                        React.createElement('span', { className: "animate-dot-1" }, "●"),
+                                        React.createElement('span', { className: "animate-dot-2" }, "●"),
+                                        React.createElement('span', { className: "animate-dot-3" }, "●")
+                                    )
+                                ] : [
+                                    React.createElement('span', { key: 'icon', className: "text-xl" }, "🚀"),
+                                    React.createElement('span', { key: 'text' }, `Generate Tailored Resume (${CREDIT_COST} Credit)`)
+                                ]
+                            )
                         ),
                         // Output Section
-                        React.createElement('div', { className: "bg-white rounded-lg shadow-md p-6" },
+                        React.createElement('div', { className: "glass rounded-2xl shadow-2xl p-6 card-hover border border-white/20 animate-fadeIn" },
                             React.createElement('div', { className: "flex justify-between items-center mb-4" },
-                                React.createElement('label', { className: "block text-sm font-semibold text-gray-700" }, "Tailored Resume Section"),
+                                React.createElement('label', { className: "flex items-center gap-2 text-base font-bold text-gray-800" },
+                                    React.createElement('span', { className: "text-xl" }, "✨"),
+                                    React.createElement('span', null, "Tailored Resume Section")
+                                ),
                                 tailoredText && React.createElement('button', {
                                     onClick: copyToClipboard,
-                                    className: "px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                                }, "Copy Tailored Text")
+                                    className: "px-5 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2 font-semibold"
+                                },
+                                    React.createElement('span', null, "📋"),
+                                    React.createElement('span', null, "Copy")
+                                )
                             ),
                             React.createElement('div', {
-                                className: "border border-gray-300 rounded-lg p-4 h-[600px] overflow-y-auto bg-gray-50"
-                            }, tailoredText ? React.createElement('p', {
-                                className: "text-gray-800 whitespace-pre-wrap"
-                            }, tailoredText) : React.createElement('p', {
-                                className: "text-gray-400 italic"
-                            }, "Your tailored resume section will appear here..."))
+                                className: "border-2 border-gray-200 rounded-xl p-6 h-[600px] overflow-y-auto bg-white/60 backdrop-blur-sm shadow-inner"
+                            }, isGenerating ? React.createElement('div', { className: "h-full flex flex-col items-center justify-center space-y-4" },
+                                React.createElement('div', { className: "relative w-16 h-16" },
+                                    React.createElement('div', { className: "absolute inset-0 border-4 border-indigo-200 rounded-full" }),
+                                    React.createElement('div', { className: "absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin" })
+                                ),
+                                React.createElement('p', { className: "text-indigo-600 font-semibold text-lg" }, "Tailoring your resume"),
+                                React.createElement('div', { className: "flex items-center gap-1" },
+                                    React.createElement('span', { className: "animate-dot-1 text-indigo-600" }, "●"),
+                                    React.createElement('span', { className: "animate-dot-2 text-indigo-600" }, "●"),
+                                    React.createElement('span', { className: "animate-dot-3 text-indigo-600" }, "●")
+                                ),
+                                React.createElement('p', { className: "text-gray-500 text-sm" }, "Analyzing job description and optimizing keywords")
+                            ) : tailoredText ? React.createElement('div', { className: "space-y-4" },
+                                React.createElement('p', {
+                                    className: "text-gray-800 whitespace-pre-wrap leading-relaxed text-base"
+                                }, tailoredText),
+                                React.createElement('div', { className: "pt-4 border-t border-gray-200 flex items-center gap-2 text-sm text-gray-500" },
+                                    React.createElement('span', null, "📊"),
+                                    React.createElement('span', null, `${tailoredText.split(/\s+/).length} words • ${tailoredText.length} characters`)
+                                )
+                            ) : React.createElement('div', { className: "h-full flex items-center justify-center" },
+                                React.createElement('div', { className: "text-center" },
+                                    React.createElement('div', { className: "text-6xl mb-4 opacity-50" }, "📝"),
+                                    React.createElement('p', { className: "text-gray-400 italic text-lg" }, "Your tailored resume section will appear here..."),
+                                    React.createElement('p', { className: "text-gray-400 text-sm mt-2" }, "Fill in the inputs and click Generate")
+                                )
+                            ))
                         )
                     ),
                     // Footer
-                    React.createElement('div', { className: "mt-8 text-center text-sm text-gray-500" },
-                        React.createElement('p', null, "Powered by Google Gemini AI • Optimized for ATS keyword matching")
+                    React.createElement('div', { className: "mt-12 text-center animate-fadeIn" },
+                        React.createElement('div', { className: "glass rounded-xl px-6 py-4 inline-block" },
+                            React.createElement('p', { className: "text-gray-700 font-medium flex items-center justify-center gap-2" },
+                                React.createElement('span', null, "⚡"),
+                                React.createElement('span', null, "Powered by Google Gemini AI"),
+                                React.createElement('span', { className: "mx-2" }, "•"),
+                                React.createElement('span', null, "🎯 Optimized for ATS keyword matching")
+                            )
+                        )
                     )
                 )
             );

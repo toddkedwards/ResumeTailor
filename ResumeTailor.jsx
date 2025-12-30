@@ -4,15 +4,15 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
-// Configuration - REPLACE WITH YOUR VALUES
+// Configuration
 const APP_ID = 'resume-tailor-v1';
 const FIREBASE_CONFIG = {
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyALXDoW17ultZ3rlSNr9oL4GE6DLCQa3tI",
+  authDomain: "resume-tailor-f4f7c.firebaseapp.com",
+  projectId: "resume-tailor-f4f7c",
+  storageBucket: "resume-tailor-f4f7c.firebasestorage.app",
+  messagingSenderId: "697064626570",
+  appId: "1:697064626570:web:b9c65f441c8561bab51073"
 };
 
 // Constants

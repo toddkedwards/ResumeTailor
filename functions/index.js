@@ -53,43 +53,111 @@ exports.tailorResume = functions.https.onCall(async (data, context) => {
   }
 
   try {
-    // Get the Gemini model (using latest stable model)
-    // Available models: gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash-exp
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // First, list available models to find one that works
+    const listModelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`;
+    let availableModelName = null;
+    
+    try {
+      const listResponse = await fetch(listModelsUrl);
+      if (listResponse.ok) {
+        const modelsData = await listResponse.json();
+        console.log('Available models:', JSON.stringify(modelsData, null, 2));
+        
+        // Find a model that supports generateContent
+        const availableModel = modelsData.models?.find(m => 
+          m.name && 
+          m.supportedGenerationMethods && 
+          m.supportedGenerationMethods.includes('generateContent')
+        );
+        
+        if (availableModel) {
+          // Extract model name (format: models/gemini-xxx)
+          availableModelName = availableModel.name.replace('models/', '');
+          console.log(`Found available model: ${availableModelName}`);
+        } else {
+          console.log('No model found with generateContent support. Available models:', 
+            modelsData.models?.map(m => ({ name: m.name, methods: m.supportedGenerationMethods })) || 'none');
+        }
+      } else {
+        const errorText = await listResponse.text();
+        console.error('Error listing models:', errorText);
+      }
+    } catch (listError) {
+      console.error('Error calling ListModels:', listError);
+    }
+    
+    // Use the found model, or try common model names as fallback
+    const modelName = availableModelName || 'gemini-pro';
+    console.log(`Using model: ${modelName}`);
+    
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
+    
+    // Create a more directive and explicit prompt for better tailoring
+    const prompt = `You are an expert ATS (Applicant Tracking System) optimization specialist. Your task is to rewrite a resume section to maximize keyword alignment with a specific job description.
 
-    // Create sophisticated system prompt for ATS optimization
-    const systemPrompt = `You are an expert ATS (Applicant Tracking System) consultant and resume optimization specialist. Your task is to rewrite resume content to maximize keyword alignment with a specific job description while maintaining authenticity and accuracy.
+CRITICAL REQUIREMENTS:
+1. Extract ALL key terms, skills, technologies, qualifications, and phrases from the job description
+2. Identify synonyms and related terms that appear in the job description
+3. Rewrite the resume section to naturally incorporate these exact keywords and phrases
+4. Match the language, terminology, and phrasing used in the job description
+5. Maintain the original meaning and accomplishments - do NOT add false information
+6. Preserve job titles, company names, and dates exactly as written
+7. Use action verbs that match the style of the job description
+8. Emphasize achievements and impact, especially those relevant to the job requirements
 
-**Your Objectives:**
-1. Identify key skills, technologies, qualifications, and terminology from the job description
-2. Rewrite the resume section to naturally incorporate these keywords and phrases
-3. Maintain the original meaning and accomplishments while enhancing ATS compatibility
-4. Use action verbs and quantifiable achievements where possible
-5. Ensure the content is professional, concise, and compelling
+KEYWORD MATCHING STRATEGY:
+- If the job description mentions "JavaScript", use "JavaScript" (not "JS" or "javascript")
+- If it mentions "React.js", use "React.js" (not just "React")
+- Match the exact terminology: "Agile methodology" vs "agile" vs "scrum"
+- Incorporate industry-specific terms and buzzwords from the job description
+- Use the same phrasing style (e.g., "collaborate with cross-functional teams" if that phrase appears)
 
-**Guidelines:**
-- Do NOT fabricate experience or skills that aren't in the original resume
-- Do NOT change job titles, company names, or dates
-- DO incorporate relevant keywords from the job description naturally
-- DO enhance descriptions with industry-standard terminology
-- DO maintain the same level of detail and structure
-- DO focus on achievements and impact, not just responsibilities
+OUTPUT REQUIREMENTS:
+- Return ONLY the rewritten resume section text
+- Do NOT include explanations, notes, or meta-commentary
+- Do NOT add markdown formatting
+- The output should be ready to paste directly into a resume
+- Maintain similar length and structure to the original
 
-**Output Format:**
-Return ONLY the rewritten resume section text. Do not include explanations, notes, or meta-commentary. The output should be ready to paste directly into a resume.`;
-
-    const userPrompt = `**Job Description:**
+JOB DESCRIPTION:
 ${jobDescription}
 
-**Current Resume Section:**
+CURRENT RESUME SECTION:
 ${resumeSection}
 
-Please rewrite the resume section above to optimize it for ATS keyword alignment with the provided job description.`;
+TASK: Rewrite the "Current Resume Section" above to optimize it for ATS keyword alignment with the "Job Description". Incorporate relevant keywords, phrases, and terminology from the job description while maintaining accuracy and authenticity. Focus on matching the language and requirements specified in the job description.`;
 
-    // Generate content
-    const result = await model.generateContent(systemPrompt + '\n\n' + userPrompt);
-    const response = await result.response;
-    const tailoredText = response.text();
+    const requestBody = {
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }]
+    };
+
+    // Make the API call
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `Gemini API error (${response.status}): ${errorText}`;
+      
+      // If model not found, provide helpful error
+      if (response.status === 404) {
+        errorMessage = `Gemini model "${modelName}" is not available. The API key may not have access to this model. Please check your Google Cloud Console to ensure the Generative Language API is enabled and your API key has the correct permissions. Error details: ${errorText}`;
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    const tailoredText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     if (!tailoredText || tailoredText.trim().length === 0) {
       throw new Error('Empty response from Gemini API');
@@ -102,12 +170,21 @@ Please rewrite the resume section above to optimize it for ATS keyword alignment
 
   } catch (error) {
     console.error('Error calling Gemini API:', error);
+    console.error('Error details:', JSON.stringify(error, null, 2));
     
     // Provide more specific error messages
     if (error.message && error.message.includes('API key')) {
       throw new functions.https.HttpsError(
         'failed-precondition',
         'Gemini API key is invalid or expired. Please contact support.'
+      );
+    }
+
+    // If model not found, provide helpful error message
+    if (error.message && (error.message.includes('not found') || error.message.includes('404'))) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `Gemini model not available. The API key may not have access to this model, or the model name may be incorrect. Error: ${error.message}`
       );
     }
 
