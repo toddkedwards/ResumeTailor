@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Resume Tailor</title>
+    <title>ResumeForge - AI-Powered Resume Optimization</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -80,8 +80,8 @@
     <!-- Firebase SDK v10 -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, collection, addDoc, getDocs, deleteDoc, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
         
         // Make Firebase modules available globally
@@ -112,6 +112,9 @@
             getAuth,
             signInAnonymously,
             onAuthStateChanged,
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            signOut,
             getFirestore,
             doc,
             getDoc,
@@ -119,6 +122,12 @@
             updateDoc,
             onSnapshot,
             serverTimestamp,
+            collection,
+            addDoc,
+            getDocs,
+            deleteDoc,
+            query,
+            orderBy,
             getFunctions,
             httpsCallable
         } = window.firebaseModules || {};
@@ -146,6 +155,7 @@
 
         function App() {
             const [userId, setUserId] = useState(null);
+            const [userEmail, setUserEmail] = useState(null);
             const [credits, setCredits] = useState(0);
             const [jobDescription, setJobDescription] = useState('');
             const [resumeSection, setResumeSection] = useState('');
@@ -156,6 +166,13 @@
             const [toast, setToast] = useState(null);
             const [uploadMode, setUploadMode] = useState(false);
             const [uploadedFileName, setUploadedFileName] = useState('');
+            const [showAuthModal, setShowAuthModal] = useState(false);
+            const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
+            const [authEmail, setAuthEmail] = useState('');
+            const [authPassword, setAuthPassword] = useState('');
+            const [authLoading, setAuthLoading] = useState(false);
+            const [savedResumes, setSavedResumes] = useState([]);
+            const [showSavedResumes, setShowSavedResumes] = useState(false);
             const unsubscribeRef = useRef(null);
             
             // Toast notification function
@@ -167,24 +184,88 @@
             // Initialize authentication
             useEffect(() => {
                 const unsubscribe = onAuthStateChanged(auth, async (user) => {
-                    if (user) {
+                    if (user && user.email) {
+                        // User is signed in with email/password
                         setUserId(user.uid);
+                        setUserEmail(user.email);
                         setIsLoading(false);
+                        setShowAuthModal(false);
                     } else {
-                        try {
-                            const userCredential = await signInAnonymously(auth);
-                            setUserId(userCredential.user.uid);
-                            setIsLoading(false);
-                        } catch (error) {
-                            console.error('Error signing in anonymously:', error);
-                            setError('Failed to initialize. Please refresh the page.');
-                            setIsLoading(false);
-                        }
+                        // No user signed in - show auth modal
+                        setUserId(null);
+                        setUserEmail(null);
+                        setIsLoading(false);
+                        setShowAuthModal(true);
                     }
                 });
 
                 return () => unsubscribe();
             }, []);
+
+            // Handle sign up
+            const handleSignUp = async () => {
+                if (!authEmail || !authPassword) {
+                    setError('Please enter email and password');
+                    return;
+                }
+                if (authPassword.length < 6) {
+                    setError('Password must be at least 6 characters');
+                    return;
+                }
+
+                setAuthLoading(true);
+                setError(null);
+
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+                    showToast('Account created successfully!', 'success');
+                    setAuthEmail('');
+                    setAuthPassword('');
+                } catch (error) {
+                    console.error('Sign up error:', error);
+                    setError(error.message || 'Failed to create account. Please try again.');
+                } finally {
+                    setAuthLoading(false);
+                }
+            };
+
+            // Handle sign in
+            const handleSignIn = async () => {
+                if (!authEmail || !authPassword) {
+                    setError('Please enter email and password');
+                    return;
+                }
+
+                setAuthLoading(true);
+                setError(null);
+
+                try {
+                    await signInWithEmailAndPassword(auth, authEmail, authPassword);
+                    showToast('Signed in successfully!', 'success');
+                    setAuthEmail('');
+                    setAuthPassword('');
+                } catch (error) {
+                    console.error('Sign in error:', error);
+                    setError(error.message || 'Failed to sign in. Please check your credentials.');
+                } finally {
+                    setAuthLoading(false);
+                }
+            };
+
+            // Handle sign out
+            const handleSignOut = async () => {
+                try {
+                    await signOut(auth);
+                    showToast('Signed out successfully', 'success');
+                    setSavedResumes([]);
+                    setTailoredText('');
+                    setJobDescription('');
+                    setResumeSection('');
+                } catch (error) {
+                    console.error('Sign out error:', error);
+                    setError('Failed to sign out');
+                }
+            };
 
             // Set up real-time credit balance listener
             useEffect(() => {
@@ -354,6 +435,88 @@
                 });
             };
 
+            // Save tailored resume
+            const saveTailoredResume = async () => {
+                if (!userId || !tailoredText || !jobDescription || !resumeSection) {
+                    showToast('Nothing to save. Please generate a tailored resume first.', 'error');
+                    return;
+                }
+
+                try {
+                    const savedResumesPath = `artifacts/${APP_ID}/users/${userId}/saved_resumes`;
+                    const savedResumesRef = collection(db, savedResumesPath);
+                    
+                    await addDoc(savedResumesRef, {
+                        jobDescription: jobDescription.trim(),
+                        originalSection: resumeSection.trim(),
+                        tailoredSection: tailoredText.trim(),
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp()
+                    });
+
+                    showToast('Resume saved successfully!', 'success');
+                    loadSavedResumes(); // Refresh the list
+                } catch (error) {
+                    console.error('Error saving resume:', error);
+                    showToast('Failed to save resume. Please try again.', 'error');
+                }
+            };
+
+            // Load saved resumes
+            const loadSavedResumes = async () => {
+                if (!userId) return;
+
+                try {
+                    const savedResumesPath = `artifacts/${APP_ID}/users/${userId}/saved_resumes`;
+                    const savedResumesRef = collection(db, savedResumesPath);
+                    const q = query(savedResumesRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    const resumes = [];
+                    querySnapshot.forEach((docSnap) => {
+                        resumes.push({
+                            id: docSnap.id,
+                            ...docSnap.data()
+                        });
+                    });
+                    
+                    setSavedResumes(resumes);
+                } catch (error) {
+                    console.error('Error loading saved resumes:', error);
+                }
+            };
+
+            // Load a saved resume
+            const loadSavedResume = (savedResume) => {
+                setJobDescription(savedResume.jobDescription || '');
+                setResumeSection(savedResume.originalSection || '');
+                setTailoredText(savedResume.tailoredSection || '');
+                setShowSavedResumes(false);
+                showToast('Resume loaded!', 'success');
+            };
+
+            // Delete a saved resume
+            const deleteSavedResume = async (resumeId) => {
+                if (!userId || !confirm('Are you sure you want to delete this saved resume?')) return;
+
+                try {
+                    const resumeDocRef = doc(db, `artifacts/${APP_ID}/users/${userId}/saved_resumes/${resumeId}`);
+                    await deleteDoc(resumeDocRef);
+                    showToast('Resume deleted successfully', 'success');
+                    loadSavedResumes(); // Refresh the list
+                } catch (error) {
+                    console.error('Error deleting resume:', error);
+                    showToast('Failed to delete resume', 'error');
+                }
+            };
+
+            // Load saved resumes when user signs in
+            useEffect(() => {
+                if (userId) {
+                    loadSavedResumes();
+                }
+            }, [userId]);
+
             // Handle file upload
             const handleFileUpload = async (event) => {
                 const file = event.target.files[0];
@@ -447,9 +610,32 @@
                     ),
                     // Header
                     React.createElement('div', { className: "text-center mb-10 animate-fadeIn" },
-                        React.createElement('h1', { className: "text-5xl font-extrabold text-black mb-4" }, "AI Resume Tailor"),
+                        React.createElement('h1', { className: "text-5xl font-extrabold text-black mb-4" }, "ResumeForge"),
                         React.createElement('p', { className: "text-gray-700 text-lg font-medium mb-6" }, "Optimize your resume for ATS keyword alignment"),
-                        React.createElement('div', { className: "inline-flex items-center gap-4 glass rounded-2xl px-8 py-4 shadow-xl card-hover" },
+                        React.createElement('div', { className: "inline-flex items-center gap-4 glass rounded-2xl px-8 py-4 shadow-xl card-hover flex-wrap justify-center" },
+                            userEmail ? React.createElement(React.Fragment, null,
+                                React.createElement('div', { className: "flex items-center gap-2" },
+                                    React.createElement('span', { className: "text-2xl" }, "👤"),
+                                    React.createElement('div', null,
+                                        React.createElement('span', { className: "text-xs text-gray-600 block" }, "Signed in as"),
+                                        React.createElement('span', { className: "text-sm font-semibold text-gray-800" }, userEmail)
+                                    )
+                                ),
+                                React.createElement('div', { className: "h-8 w-px bg-gray-300" }),
+                                React.createElement('button', {
+                                    onClick: () => setShowSavedResumes(true),
+                                    className: "px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-all text-sm flex items-center gap-2"
+                                },
+                                    React.createElement('span', null, "📁"),
+                                    React.createElement('span', null, `Saved (${savedResumes.length})`)
+                                ),
+                                React.createElement('div', { className: "h-8 w-px bg-gray-300" }),
+                                React.createElement('button', {
+                                    onClick: handleSignOut,
+                                    className: "px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-all text-sm"
+                                }, "Sign Out")
+                            ) : null,
+                            React.createElement('div', { className: "h-8 w-px bg-gray-300" }),
                             React.createElement('div', { className: "flex items-center gap-2" },
                                 React.createElement('span', { className: "text-3xl" }, "💎"),
                                 React.createElement('div', null,
@@ -601,12 +787,21 @@
                                     React.createElement('span', { className: "text-xl" }, "✨"),
                                     React.createElement('span', null, "Tailored Resume Section")
                                 ),
-                                tailoredText && React.createElement('button', {
-                                    onClick: copyToClipboard,
-                                    className: "px-5 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2 font-semibold"
-                                },
-                                    React.createElement('span', null, "📋"),
-                                    React.createElement('span', null, "Copy")
+                                tailoredText && React.createElement('div', { className: "flex gap-2" },
+                                    React.createElement('button', {
+                                        onClick: copyToClipboard,
+                                        className: "px-5 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2 font-semibold"
+                                    },
+                                        React.createElement('span', null, "📋"),
+                                        React.createElement('span', null, "Copy")
+                                    ),
+                                    userId && React.createElement('button', {
+                                        onClick: saveTailoredResume,
+                                        className: "px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2 font-semibold"
+                                    },
+                                        React.createElement('span', null, "💾"),
+                                        React.createElement('span', null, "Save")
+                                    )
                                 )
                             ),
                             React.createElement('div', {
@@ -638,6 +833,126 @@
                                     React.createElement('p', { className: "text-gray-400 text-sm mt-2" }, "Fill in the inputs and click Generate")
                                 )
                             ))
+                        )
+                    ),
+                    // Auth Modal
+                    showAuthModal && React.createElement('div', {
+                        className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4",
+                        onClick: () => setShowAuthModal(false)
+                    },
+                        React.createElement('div', {
+                            className: "glass rounded-2xl p-8 max-w-md w-full shadow-2xl",
+                            onClick: (e) => e.stopPropagation()
+                        },
+                            React.createElement('h2', { className: "text-2xl font-bold text-gray-800 mb-6 text-center" },
+                                authMode === 'signin' ? 'Sign In to ResumeForge' : 'Create Account'
+                            ),
+                            error && React.createElement('div', {
+                                className: "mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm"
+                            }, error),
+                            React.createElement('div', { className: "space-y-4" },
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-semibold text-gray-700 mb-2" }, "Email"),
+                                    React.createElement('input', {
+                                        type: 'email',
+                                        value: authEmail,
+                                        onChange: (e) => setAuthEmail(e.target.value),
+                                        placeholder: "your@email.com",
+                                        className: "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                    })
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-semibold text-gray-700 mb-2" }, "Password"),
+                                    React.createElement('input', {
+                                        type: 'password',
+                                        value: authPassword,
+                                        onChange: (e) => setAuthPassword(e.target.value),
+                                        placeholder: "••••••••",
+                                        className: "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                    })
+                                ),
+                                React.createElement('button', {
+                                    onClick: authMode === 'signin' ? handleSignIn : handleSignUp,
+                                    disabled: authLoading,
+                                    className: `w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all ${authLoading ? 'opacity-50 cursor-not-allowed' : ''}`
+                                }, authLoading ? 'Loading...' : (authMode === 'signin' ? 'Sign In' : 'Sign Up')),
+                                React.createElement('div', { className: "text-center text-sm text-gray-600" },
+                                    authMode === 'signin' ? 
+                                        React.createElement(React.Fragment, null,
+                                            "Don't have an account? ",
+                                            React.createElement('button', {
+                                                onClick: () => {
+                                                    setAuthMode('signup');
+                                                    setError(null);
+                                                },
+                                                className: "text-indigo-600 hover:underline font-semibold"
+                                            }, "Sign Up")
+                                        ) :
+                                        React.createElement(React.Fragment, null,
+                                            "Already have an account? ",
+                                            React.createElement('button', {
+                                                onClick: () => {
+                                                    setAuthMode('signin');
+                                                    setError(null);
+                                                },
+                                                className: "text-indigo-600 hover:underline font-semibold"
+                                            }, "Sign In")
+                                        )
+                                )
+                            )
+                        )
+                    ),
+                    // Saved Resumes Modal
+                    showSavedResumes && React.createElement('div', {
+                        className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4",
+                        onClick: () => setShowSavedResumes(false)
+                    },
+                        React.createElement('div', {
+                            className: "glass rounded-2xl p-8 max-w-4xl w-full max-h-[80vh] overflow-y-auto shadow-2xl",
+                            onClick: (e) => e.stopPropagation()
+                        },
+                            React.createElement('div', { className: "flex justify-between items-center mb-6" },
+                                React.createElement('h2', { className: "text-2xl font-bold text-gray-800" }, "Saved Resumes"),
+                                React.createElement('button', {
+                                    onClick: () => setShowSavedResumes(false),
+                                    className: "text-gray-500 hover:text-gray-700 text-2xl"
+                                }, "×")
+                            ),
+                            savedResumes.length === 0 ? React.createElement('div', { className: "text-center py-12" },
+                                React.createElement('div', { className: "text-6xl mb-4 opacity-50" }, "📁"),
+                                React.createElement('p', { className: "text-gray-500 text-lg" }, "No saved resumes yet"),
+                                React.createElement('p', { className: "text-gray-400 text-sm mt-2" }, "Generate and save a tailored resume to see it here")
+                            ) : React.createElement('div', { className: "space-y-4" },
+                                savedResumes.map((resume) => React.createElement('div', {
+                                    key: resume.id,
+                                    className: "border-2 border-gray-200 rounded-xl p-6 hover:border-indigo-300 transition-all bg-white/50"
+                                },
+                                    React.createElement('div', { className: "flex justify-between items-start mb-3" },
+                                        React.createElement('div', { className: "flex-1" },
+                                            React.createElement('p', { className: "text-xs text-gray-500 mb-1" },
+                                                resume.createdAt ? new Date(resume.createdAt.seconds * 1000).toLocaleDateString() : 'Unknown date'
+                                            ),
+                                            React.createElement('p', { className: "text-sm font-semibold text-gray-700 mb-2 line-clamp-2" },
+                                                resume.jobDescription ? resume.jobDescription.substring(0, 100) + '...' : 'No job description'
+                                            )
+                                        ),
+                                        React.createElement('div', { className: "flex gap-2" },
+                                            React.createElement('button', {
+                                                onClick: () => loadSavedResume(resume),
+                                                className: "px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm font-medium"
+                                            }, "Load"),
+                                            React.createElement('button', {
+                                                onClick: () => deleteSavedResume(resume.id),
+                                                className: "px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all text-sm font-medium"
+                                            }, "Delete")
+                                        )
+                                    ),
+                                    React.createElement('div', { className: "text-xs text-gray-500" },
+                                        React.createElement('span', null, `Original: ${resume.originalSection ? resume.originalSection.length : 0} chars • `),
+                                        React.createElement('span', null, `Tailored: ${resume.tailoredSection ? resume.tailoredSection.length : 0} chars`)
+                                    )
+                                ))
+                            )
                         )
                     ),
                     // Footer
