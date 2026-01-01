@@ -173,6 +173,7 @@
             const [authLoading, setAuthLoading] = useState(false);
             const [savedResumes, setSavedResumes] = useState([]);
             const [showSavedResumes, setShowSavedResumes] = useState(false);
+            const [showLandingPage, setShowLandingPage] = useState(true);
             const unsubscribeRef = useRef(null);
             
             // Toast notification function
@@ -190,12 +191,14 @@
                         setUserEmail(user.email);
                         setIsLoading(false);
                         setShowAuthModal(false);
+                        setShowLandingPage(false); // Hide landing page when signed in
                     } else {
-                        // No user signed in - show auth modal
+                        // No user signed in - show landing page
                         setUserId(null);
                         setUserEmail(null);
                         setIsLoading(false);
-                        setShowAuthModal(true);
+                        setShowAuthModal(false);
+                        setShowLandingPage(true); // Show landing page
                     }
                 });
 
@@ -333,31 +336,63 @@
                 }
             };
 
-            // Simulate credit purchase
-            const simulateCreditPurchase = async () => {
+            // Handle Stripe checkout for credit purchase
+            const handleCreditPurchase = async () => {
                 if (!userId) {
                     setError('Please wait for authentication to complete.');
                     return;
                 }
 
-                const creditsPath = `artifacts/${APP_ID}/users/${userId}/profile/data`;
-                const creditsDocRef = doc(db, creditsPath);
-
                 try {
-                    const docSnap = await getDoc(creditsDocRef);
-                    const currentCredits = docSnap.exists() ? (docSnap.data().credits_balance || 0) : 0;
+                    const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
+                    const currentUrl = window.location.origin + window.location.pathname;
+                    
+                    const result = await createCheckoutSession({
+                        currentUrl: currentUrl
+                    });
 
-                    await setDoc(creditsDocRef, {
-                        credits_balance: currentCredits + PURCHASE_BUNDLE,
-                        updated_at: serverTimestamp()
-                    }, { merge: true });
-
-                    showToast(`Successfully added ${PURCHASE_BUNDLE} credits! Total: ${currentCredits + PURCHASE_BUNDLE}`, 'success');
+                    if (result.data && result.data.url) {
+                        // Redirect to Stripe Checkout
+                        window.location.href = result.data.url;
+                    } else {
+                        throw new Error('No checkout URL returned');
+                    }
                 } catch (error) {
-                    console.error('Error purchasing credits:', error);
-                    setError('Failed to purchase credits. Please try again.');
+                    console.error('Error creating checkout session:', error);
+                    setError(error.message || 'Failed to create checkout session. Please try again.');
+                    showToast('Failed to start checkout. Please try again.', 'error');
                 }
             };
+
+            // Handle Stripe redirect after payment
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const sessionId = urlParams.get('session_id');
+                const success = urlParams.get('success');
+                const canceled = urlParams.get('canceled');
+
+                if (success && sessionId) {
+                    showToast('Payment successful! Credits will be added to your account shortly.', 'success');
+                    // Clean up URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    // Refresh credits after a short delay to allow webhook to process
+                    setTimeout(() => {
+                        if (userId) {
+                            const creditsPath = `artifacts/${APP_ID}/users/${userId}/profile/data`;
+                            const creditsDocRef = doc(db, creditsPath);
+                            getDoc(creditsDocRef).then((docSnap) => {
+                                if (docSnap.exists()) {
+                                    setCredits(docSnap.data().credits_balance || 0);
+                                }
+                            });
+                        }
+                    }, 2000);
+                } else if (canceled) {
+                    showToast('Payment canceled', 'info');
+                    // Clean up URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            }, [userId]);
 
             // Generate tailored resume
             const generateTailoredResume = async () => {
@@ -589,6 +624,196 @@
                 ));
             }
 
+            // Landing Page (shown when not signed in)
+            if (!userId && showLandingPage) {
+                return React.createElement('div', { className: "min-h-screen gradient-bg" },
+                    // Hero Section
+                    React.createElement('div', { className: "container mx-auto px-4 py-20" },
+                        React.createElement('div', { className: "text-center mb-16 animate-fadeIn" },
+                            React.createElement('h1', { className: "text-6xl md:text-7xl font-extrabold text-black mb-6" }, "ResumeForge"),
+                            React.createElement('p', { className: "text-2xl md:text-3xl text-gray-700 font-medium mb-4" }, "Optimize Your Resume for ATS Systems"),
+                            React.createElement('p', { className: "text-lg text-gray-600 max-w-2xl mx-auto mb-8" }, "AI-powered resume tailoring that matches job descriptions perfectly. Get past ATS filters and land more interviews."),
+                            React.createElement('button', {
+                                onClick: () => {
+                                    setShowAuthModal(true);
+                                    setAuthMode('signup');
+                                },
+                                className: "px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
+                            }, "Get Started Free")
+                        ),
+                        // Features Section
+                        React.createElement('div', { className: "max-w-6xl mx-auto mb-20" },
+                            React.createElement('h2', { className: "text-3xl font-bold text-center text-gray-800 mb-12" }, "Why ResumeForge?"),
+                            React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-3 gap-8" },
+                                React.createElement('div', { className: "glass rounded-2xl p-6 text-center card-hover" },
+                                    React.createElement('div', { className: "text-5xl mb-4" }, "🎯"),
+                                    React.createElement('h3', { className: "text-xl font-bold text-gray-800 mb-2" }, "ATS Optimization"),
+                                    React.createElement('p', { className: "text-gray-600" }, "Match keywords from job descriptions to pass ATS filters automatically")
+                                ),
+                                React.createElement('div', { className: "glass rounded-2xl p-6 text-center card-hover" },
+                                    React.createElement('div', { className: "text-5xl mb-4" }, "⚡"),
+                                    React.createElement('h3', { className: "text-xl font-bold text-gray-800 mb-2" }, "Lightning Fast"),
+                                    React.createElement('p', { className: "text-gray-600" }, "Get tailored resume sections in seconds with AI-powered processing")
+                                ),
+                                React.createElement('div', { className: "glass rounded-2xl p-6 text-center card-hover" },
+                                    React.createElement('div', { className: "text-5xl mb-4" }, "💾"),
+                                    React.createElement('h3', { className: "text-xl font-bold text-gray-800 mb-2" }, "Save & Manage"),
+                                    React.createElement('p', { className: "text-gray-600" }, "Save multiple tailored resumes and access them anytime")
+                                ),
+                                React.createElement('div', { className: "glass rounded-2xl p-6 text-center card-hover" },
+                                    React.createElement('div', { className: "text-5xl mb-4" }, "📄"),
+                                    React.createElement('h3', { className: "text-xl font-bold text-gray-800 mb-2" }, "File Upload"),
+                                    React.createElement('p', { className: "text-gray-600" }, "Upload PDF, DOCX, or TXT files - we'll extract the text for you")
+                                ),
+                                React.createElement('div', { className: "glass rounded-2xl p-6 text-center card-hover" },
+                                    React.createElement('div', { className: "text-5xl mb-4" }, "🔒"),
+                                    React.createElement('h3', { className: "text-xl font-bold text-gray-800 mb-2" }, "Secure & Private"),
+                                    React.createElement('p', { className: "text-gray-600" }, "Your data is encrypted and stored securely in your account")
+                                ),
+                                React.createElement('div', { className: "glass rounded-2xl p-6 text-center card-hover" },
+                                    React.createElement('div', { className: "text-5xl mb-4" }, "💰"),
+                                    React.createElement('h3', { className: "text-xl font-bold text-gray-800 mb-2" }, "Affordable"),
+                                    React.createElement('p', { className: "text-gray-600" }, "Pay only for what you use - $2 for 5 generations")
+                                )
+                            )
+                        ),
+                        // How It Works Section
+                        React.createElement('div', { className: "max-w-4xl mx-auto mb-20" },
+                            React.createElement('h2', { className: "text-3xl font-bold text-center text-gray-800 mb-12" }, "How It Works"),
+                            React.createElement('div', { className: "space-y-8" },
+                                React.createElement('div', { className: "flex items-start gap-6 glass rounded-2xl p-6 card-hover" },
+                                    React.createElement('div', { className: "text-4xl font-bold text-indigo-600 flex-shrink-0" }, "1"),
+                                    React.createElement('div', null,
+                                        React.createElement('h3', { className: "text-xl font-bold text-gray-800 mb-2" }, "Paste Job Description"),
+                                        React.createElement('p', { className: "text-gray-600" }, "Copy and paste the job description you're applying for")
+                                    )
+                                ),
+                                React.createElement('div', { className: "flex items-start gap-6 glass rounded-2xl p-6 card-hover" },
+                                    React.createElement('div', { className: "text-4xl font-bold text-indigo-600 flex-shrink-0" }, "2"),
+                                    React.createElement('div', null,
+                                        React.createElement('h3', { className: "text-xl font-bold text-gray-800 mb-2" }, "Upload or Paste Resume"),
+                                        React.createElement('p', { className: "text-gray-600" }, "Upload your resume file (PDF/DOCX/TXT) or paste the section you want to tailor")
+                                    )
+                                ),
+                                React.createElement('div', { className: "flex items-start gap-6 glass rounded-2xl p-6 card-hover" },
+                                    React.createElement('div', { className: "text-4xl font-bold text-indigo-600 flex-shrink-0" }, "3"),
+                                    React.createElement('div', null,
+                                        React.createElement('h3', { className: "text-xl font-bold text-gray-800 mb-2" }, "AI Optimizes Keywords"),
+                                        React.createElement('p', { className: "text-gray-600" }, "Our AI analyzes the job description and rewrites your resume with matching keywords")
+                                    )
+                                ),
+                                React.createElement('div', { className: "flex items-start gap-6 glass rounded-2xl p-6 card-hover" },
+                                    React.createElement('div', { className: "text-4xl font-bold text-indigo-600 flex-shrink-0" }, "4"),
+                                    React.createElement('div', null,
+                                        React.createElement('h3', { className: "text-xl font-bold text-gray-800 mb-2" }, "Copy & Use"),
+                                        React.createElement('p', { className: "text-gray-600" }, "Copy your optimized resume section and paste it into your resume. Save it for future reference!")
+                                    )
+                                )
+                            )
+                        ),
+                        // Pricing Section
+                        React.createElement('div', { className: "max-w-4xl mx-auto mb-20" },
+                            React.createElement('h2', { className: "text-3xl font-bold text-center text-gray-800 mb-12" }, "Simple, Transparent Pricing"),
+                            React.createElement('div', { className: "glass rounded-2xl p-8 text-center card-hover" },
+                                React.createElement('div', { className: "text-5xl mb-4" }, "💎"),
+                                React.createElement('h3', { className: "text-2xl font-bold text-gray-800 mb-4" }, "Credit-Based System"),
+                                React.createElement('p', { className: "text-gray-600 mb-6" }, "Pay only for what you use. No subscriptions, no hidden fees."),
+                                React.createElement('div', { className: "inline-flex items-center gap-4 glass rounded-xl px-8 py-4" },
+                                    React.createElement('div', null,
+                                        React.createElement('div', { className: "text-3xl font-bold text-indigo-600" }, "$2.00"),
+                                        React.createElement('div', { className: "text-sm text-gray-600" }, "for 5 credits")
+                                    ),
+                                    React.createElement('div', { className: "h-12 w-px bg-gray-300" }),
+                                    React.createElement('div', null,
+                                        React.createElement('div', { className: "text-3xl font-bold text-indigo-600" }, "1 Credit"),
+                                        React.createElement('div', { className: "text-sm text-gray-600" }, "= 1 Generation")
+                                    )
+                                )
+                            )
+                        ),
+                        // Final CTA
+                        React.createElement('div', { className: "text-center" },
+                            React.createElement('h2', { className: "text-3xl font-bold text-gray-800 mb-4" }, "Ready to Optimize Your Resume?"),
+                            React.createElement('p', { className: "text-lg text-gray-600 mb-8" }, "Join thousands of job seekers getting more interviews"),
+                            React.createElement('button', {
+                                onClick: () => {
+                                    setShowAuthModal(true);
+                                    setAuthMode('signup');
+                                },
+                                className: "px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
+                            }, "Get Started Free")
+                        )
+                    ),
+                    // Auth Modal (same as before)
+                    showAuthModal && React.createElement('div', {
+                        className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4",
+                        onClick: () => setShowAuthModal(false)
+                    },
+                        React.createElement('div', {
+                            className: "glass rounded-2xl p-8 max-w-md w-full shadow-2xl",
+                            onClick: (e) => e.stopPropagation()
+                        },
+                            React.createElement('h2', { className: "text-2xl font-bold text-gray-800 mb-6 text-center" },
+                                authMode === 'signin' ? 'Sign In to ResumeForge' : 'Create Account'
+                            ),
+                            error && React.createElement('div', {
+                                className: "mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm"
+                            }, error),
+                            React.createElement('div', { className: "space-y-4" },
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-semibold text-gray-700 mb-2" }, "Email"),
+                                    React.createElement('input', {
+                                        type: 'email',
+                                        value: authEmail,
+                                        onChange: (e) => setAuthEmail(e.target.value),
+                                        placeholder: "your@email.com",
+                                        className: "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                    })
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-semibold text-gray-700 mb-2" }, "Password"),
+                                    React.createElement('input', {
+                                        type: 'password',
+                                        value: authPassword,
+                                        onChange: (e) => setAuthPassword(e.target.value),
+                                        placeholder: "••••••••",
+                                        className: "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                    })
+                                ),
+                                React.createElement('button', {
+                                    onClick: authMode === 'signin' ? handleSignIn : handleSignUp,
+                                    disabled: authLoading,
+                                    className: `w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all ${authLoading ? 'opacity-50 cursor-not-allowed' : ''}`
+                                }, authLoading ? 'Loading...' : (authMode === 'signin' ? 'Sign In' : 'Sign Up')),
+                                React.createElement('div', { className: "text-center text-sm text-gray-600" },
+                                    authMode === 'signin' ? 
+                                        React.createElement(React.Fragment, null,
+                                            "Don't have an account? ",
+                                            React.createElement('button', {
+                                                onClick: () => {
+                                                    setAuthMode('signup');
+                                                    setError(null);
+                                                },
+                                                className: "text-indigo-600 hover:underline font-semibold"
+                                            }, "Sign Up")
+                                        ) :
+                                        React.createElement(React.Fragment, null,
+                                            "Already have an account? ",
+                                            React.createElement('button', {
+                                                onClick: () => {
+                                                    setAuthMode('signin');
+                                                    setError(null);
+                                                },
+                                                className: "text-indigo-600 hover:underline font-semibold"
+                                            }, "Sign In")
+                                        )
+                                )
+                            )
+                        )
+                    )
+                );
+            }
+
             return React.createElement('div', { className: "min-h-screen gradient-bg py-8 px-4" },
                 React.createElement('div', { className: "max-w-7xl mx-auto" },
                     // Toast Notification
@@ -645,11 +870,11 @@
                             ),
                             React.createElement('div', { className: "h-8 w-px bg-gray-300" }),
                             React.createElement('button', {
-                                onClick: simulateCreditPurchase,
+                                onClick: handleCreditPurchase,
                                 className: "px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
                             },
                                 React.createElement('span', null, "💳"),
-                                React.createElement('span', null, `Buy ${PURCHASE_BUNDLE} Credits`)
+                                React.createElement('span', null, `Buy ${PURCHASE_BUNDLE} Credits ($2.00)`)
                             )
                         )
                     ),

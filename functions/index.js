@@ -7,6 +7,17 @@ admin.initializeApp();
 const APP_ID = functions.config().app?.id || 'resume-tailor-v1';
 const GEMINI_API_KEY = functions.config().gemini?.api_key;
 
+// Initialize Stripe
+let stripe = null;
+try {
+  const stripeSecretKey = functions.config().stripe?.secret_key;
+  if (stripeSecretKey) {
+    stripe = require('stripe')(stripeSecretKey);
+  }
+} catch (error) {
+  console.warn('Stripe not configured:', error.message);
+}
+
 // Initialize Gemini AI
 let genAI;
 if (GEMINI_API_KEY) {
@@ -193,5 +204,161 @@ TASK: Rewrite the "Current Resume Section" above to optimize it for ATS keyword 
       `Failed to generate tailored resume: ${error.message || 'Unknown error'}`
     );
   }
+});
+
+/**
+ * Create Stripe Checkout Session
+ * Creates a checkout session for purchasing credits (5 credits for $2.00)
+ */
+exports.createCheckoutSession = functions.https.onCall(async (data, context) => {
+  // Verify user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated to create checkout session'
+    );
+  }
+
+  if (!stripe) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Stripe is not configured. Please set functions.config().stripe.secret_key'
+    );
+  }
+
+  const userId = context.auth.uid;
+  const email = context.auth.token.email || data.email;
+  const priceId = data.priceId || functions.config().stripe?.price_id;
+
+  console.log('Creating checkout session with:', { userId, email, priceId });
+
+  if (!priceId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Price ID is required. Please configure stripe.price_id in Firebase Functions config.'
+    );
+  }
+
+  try {
+    // Create or retrieve Stripe customer
+    let customerId;
+    const userRef = admin.firestore().doc(`artifacts/${APP_ID}/users/${userId}`);
+    const userDoc = await userRef.get();
+    
+    if (userDoc.exists && userDoc.data().stripeCustomerId) {
+      customerId = userDoc.data().stripeCustomerId;
+    } else {
+      // Create new Stripe customer
+      const customer = await stripe.customers.create({
+        email: email,
+        metadata: {
+          firebaseUserId: userId
+        }
+      });
+      customerId = customer.id;
+      
+      // Save customer ID to Firestore
+      await userRef.set({
+        stripeCustomerId: customerId
+      }, { merge: true });
+    }
+
+    // Get current URL for success/cancel redirects
+    const currentUrl = data.currentUrl || 'https://resume-tailor-f4f7c.web.app';
+
+    // Create Checkout Session (one-time payment for 5 credits)
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      mode: 'payment', // One-time payment
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `${currentUrl}?session_id={CHECKOUT_SESSION_ID}&success=true`,
+      cancel_url: `${currentUrl}?canceled=true`,
+      metadata: {
+        firebaseUserId: userId,
+        creditsToAdd: '5', // Add 5 credits per purchase
+      },
+    });
+
+    return { 
+      sessionId: session.id,
+      url: session.url 
+    };
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      `Failed to create checkout session: ${error.message || 'Unknown error'}`
+    );
+  }
+});
+
+/**
+ * Stripe Webhook Handler
+ * Handles checkout.session.completed events to add credits to user account
+ */
+exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = functions.config().stripe?.webhook_secret;
+
+  if (!webhookSecret) {
+    console.error('Webhook secret not configured');
+    return res.status(400).send('Webhook secret not configured');
+  }
+
+  if (!stripe) {
+    console.error('Stripe not initialized');
+    return res.status(400).send('Stripe not initialized');
+  }
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the checkout.session.completed event
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const userId = session.metadata?.firebaseUserId;
+    const creditsToAdd = parseInt(session.metadata?.creditsToAdd || '5', 10);
+
+    if (!userId) {
+      console.error('No firebaseUserId in session metadata');
+      return res.status(400).send('No user ID in session metadata');
+    }
+
+    try {
+      // Add credits to user account
+      const creditsPath = `artifacts/${APP_ID}/users/${userId}/profile/data`;
+      const creditsRef = admin.firestore().doc(creditsPath);
+      const creditsDoc = await creditsRef.get();
+
+      const currentCredits = creditsDoc.exists ? (creditsDoc.data().credits_balance || 0) : 0;
+
+      await creditsRef.set({
+        credits_balance: currentCredits + creditsToAdd,
+        updated_at: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      console.log(`Added ${creditsToAdd} credits to user ${userId}. New balance: ${currentCredits + creditsToAdd}`);
+
+      return res.status(200).send({ received: true });
+    } catch (error) {
+      console.error('Error adding credits:', error);
+      return res.status(500).send('Error processing webhook');
+    }
+  }
+
+  // Return a response to acknowledge receipt of the event
+  res.json({ received: true });
 });
 
