@@ -47,9 +47,9 @@ cd /Users/toddk.edwards/ResumeTailor
 # Link your project (replace PROJECT_ID with your actual project ID)
 firebase use YOUR_PROJECT_ID
 
-# Set configuration
+# Set configuration (replace YOUR_GEMINI_API_KEY with your actual key from Google AI Studio)
 firebase functions:config:set \
-  gemini.api_key="AIzaSyBb90cSNK4OMnhM3FTsplGVmbmkr1T7HUU" \
+  gemini.api_key="YOUR_GEMINI_API_KEY" \
   app.id="resume-tailor-v1"
 
 # Deploy functions

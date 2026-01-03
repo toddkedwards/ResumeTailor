@@ -29,8 +29,16 @@ firebase use $PROJECT_ID
 
 # Set configuration
 echo "⚙️  Setting Firebase Functions configuration..."
+echo "⚠️  IMPORTANT: You need to provide your Gemini API key from https://aistudio.google.com/app/apikey"
+read -p "Enter your Gemini API key: " GEMINI_KEY
+
+if [ -z "$GEMINI_KEY" ]; then
+    echo "❌ Gemini API key is required"
+    exit 1
+fi
+
 firebase functions:config:set \
-  gemini.api_key="AIzaSyBb90cSNK4OMnhM3FTsplGVmbmkr1T7HUU" \
+  gemini.api_key="$GEMINI_KEY" \
   app.id="resume-tailor-v1"
 
 echo ""
