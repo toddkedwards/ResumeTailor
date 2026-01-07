@@ -207,6 +207,165 @@ TASK: Rewrite the "Current Resume Section" above to optimize it for ATS keyword 
 });
 
 /**
+ * Generate Improvement Tips
+ * Analyzes job description and resume to provide actionable improvement tips
+ */
+exports.generateImprovementTips = functions.https.onCall(async (data, context) => {
+  // Verify user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated to use this function.'
+    );
+  }
+
+  const { jobDescription, originalResume, tailoredResume } = data;
+
+  // Validate inputs
+  if (!jobDescription || typeof jobDescription !== 'string' || jobDescription.trim().length === 0) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Job description is required.'
+    );
+  }
+
+  if (!GEMINI_API_KEY) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Gemini API key is not configured.'
+    );
+  }
+
+  try {
+    // Find available model
+    const listModelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`;
+    let availableModelName = 'gemini-pro';
+    
+    try {
+      const listResponse = await fetch(listModelsUrl);
+      if (listResponse.ok) {
+        const modelsData = await listResponse.json();
+        const availableModel = modelsData.models?.find(m => 
+          m.name && 
+          m.supportedGenerationMethods && 
+          m.supportedGenerationMethods.includes('generateContent')
+        );
+        if (availableModel) {
+          availableModelName = availableModel.name.replace('models/', '');
+        }
+      }
+    } catch (listError) {
+      console.error('Error listing models:', listError);
+    }
+
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${availableModelName}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const tipsPrompt = `You are a career coach and ATS optimization expert. Analyze the job description and resume section below, then provide 5-7 actionable, specific tips for improving the resume to better match the job requirements.
+
+Focus on:
+1. Missing keywords or skills from the job description
+2. Skills/experiences to highlight more prominently
+3. Action verbs and terminology to use
+4. Formatting or structure improvements
+5. Industry-specific terminology
+6. Quantifiable achievements to add
+7. ATS optimization strategies
+
+Return your response as a JSON array of tip objects, each with:
+- "title": A short, actionable title (max 60 characters)
+- "description": A detailed explanation (2-3 sentences)
+- "priority": "high", "medium", or "low"
+- "category": One of: "keywords", "skills", "formatting", "terminology", "achievements", "ats"
+
+Example format:
+[
+  {
+    "title": "Add 'Agile methodology' keyword",
+    "description": "The job description emphasizes Agile practices. Include 'Agile methodology' or 'Agile/Scrum' in your resume to improve keyword matching.",
+    "priority": "high",
+    "category": "keywords"
+  }
+]
+
+JOB DESCRIPTION:
+${jobDescription}
+
+ORIGINAL RESUME SECTION:
+${originalResume || 'Not provided'}
+
+TAILORED RESUME SECTION:
+${tailoredResume || 'Not provided'}
+
+Provide 5-7 specific, actionable tips. Return ONLY valid JSON array, no other text.`;
+
+    const requestBody = {
+      contents: [{
+        parts: [{
+          text: tipsPrompt
+        }]
+      }]
+    };
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API error (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    const tipsText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    if (!tipsText || tipsText.trim().length === 0) {
+      throw new Error('Empty response from Gemini API');
+    }
+
+    // Parse JSON from response
+    let tips = [];
+    try {
+      // Extract JSON array from response
+      const jsonMatch = tipsText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        tips = JSON.parse(jsonMatch[0]);
+      } else {
+        // Fallback: try parsing the whole response
+        tips = JSON.parse(tipsText);
+      }
+    } catch (parseError) {
+      console.error('Error parsing tips JSON:', parseError);
+      // Return a default tip if parsing fails
+      tips = [{
+        title: "Review the tailored resume above",
+        description: "Compare the tailored version with your original to see keyword improvements and formatting changes.",
+        priority: "medium",
+        category: "ats"
+      }];
+    }
+
+    // Validate and clean tips
+    tips = tips.filter(tip => tip.title && tip.description).slice(0, 7);
+
+    return {
+      tips: tips,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+  } catch (error) {
+    console.error('Error generating improvement tips:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      `Failed to generate improvement tips: ${error.message || 'Unknown error'}`
+    );
+  }
+});
+
+/**
  * Create Stripe Checkout Session
  * Creates a checkout session for purchasing credits (5 credits for $2.00)
  */
