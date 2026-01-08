@@ -43,6 +43,7 @@
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     
     <!-- Tailwind CSS -->
+    <!-- Note: CDN version is for development. For production, use PostCSS plugin or Tailwind CLI -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- React and ReactDOM -->
@@ -343,7 +344,15 @@
         }
         
         async function getUserSubscriptionData() {
-            if (!db || !currentUserId) return null;
+            if (!db) {
+                console.error('Firestore database not initialized');
+                throw new Error('Database not initialized. Please refresh the page.');
+            }
+            
+            if (!currentUserId) {
+                console.error('User ID not available');
+                throw new Error('User not authenticated');
+            }
             
             try {
                 const { doc, getDoc } = window.firebaseModules;
@@ -367,21 +376,19 @@
             } catch (error) {
                 // Handle permission errors gracefully
                 if (error.code === 'permission-denied' || error.message?.includes('permission')) {
-                    console.warn('Permission denied reading user data. Check Firestore security rules.');
-                    console.warn('Make sure your Firestore rules allow: match /artifacts/{appId}/users/{userId} { allow read, write: if request.auth != null && request.auth.uid == userId; }');
-                    // Return default values to allow app to continue functioning
-                    return {
-                        credits: 0,
-                        hasPaidOnce: false,
-                        freeGenerationUsed: false,
-                    };
+                    console.error('Permission denied reading user data. Check Firestore security rules.');
+                    console.error('Make sure your Firestore rules allow: match /artifacts/{appId}/users/{userId} { allow read, write: if request.auth != null && request.auth.uid == userId; }');
+                    throw new Error('Permission denied. Please check Firestore security rules.');
                 }
+                
+                // Handle network errors
+                if (error.code === 'unavailable' || error.message?.includes('network') || error.message?.includes('fetch')) {
+                    console.error('Network error getting user data:', error);
+                    throw new Error('Network error. Please check your internet connection.');
+                }
+                
                 console.error('Error getting user data:', error);
-                return {
-                    credits: 0,
-                    hasPaidOnce: false,
-                    freeGenerationUsed: false,
-                };
+                throw new Error('Failed to load credit balance: ' + (error.message || 'Unknown error'));
             }
         }
         
@@ -726,13 +733,30 @@
                         setUser(firebaseUser);
                         setFirebaseReady(true);
                         
-                        // Load user subscription data
-                        const userData = await getUserSubscriptionData();
-                        setSubscriptionData(userData);
-                        
-                        // Check usage limits
-                        const limit = await checkUsageLimit();
-                        setUsageLimit(limit);
+                        // Load user subscription data with error handling
+                        try {
+                            const userData = await getUserSubscriptionData();
+                            setSubscriptionData(userData);
+                            
+                            // Check usage limits
+                            const limit = await checkUsageLimit();
+                            setUsageLimit(limit);
+                        } catch (error) {
+                            console.error('Error loading subscription data:', error);
+                            // Set default values on error
+                            setSubscriptionData({
+                                credits: 0,
+                                hasPaidOnce: false,
+                                freeGenerationUsed: false,
+                            });
+                            setUsageLimit({ 
+                                canGenerate: false, 
+                                remaining: 0, 
+                                message: 'Unable to load credit balance. Please refresh the page.', 
+                                isFree: false 
+                            });
+                            showToast('Failed to load credit balance. Please refresh the page.', 'error');
+                        }
                         
                         // Load saved resumes and capture unsubscribe function
                         resumesUnsubscribeRef.current = loadSavedResumes();
@@ -764,10 +788,15 @@
                 // Refresh usage limit periodically
                 if (firebaseReady && currentUserId) {
                     const interval = setInterval(async () => {
-                        const limit = await checkUsageLimit();
-                        setUsageLimit(limit);
-                        const userData = await getUserSubscriptionData();
-                        setSubscriptionData(userData);
+                        try {
+                            const limit = await checkUsageLimit();
+                            setUsageLimit(limit);
+                            const userData = await getUserSubscriptionData();
+                            setSubscriptionData(userData);
+                        } catch (error) {
+                            console.error('Error refreshing subscription data:', error);
+                            // Don't show error toast on background refresh to avoid annoying users
+                        }
                     }, 60000); // Check every minute
                     
                     return () => clearInterval(interval);
@@ -1051,10 +1080,27 @@
                     setPassword('');
                     
                     // New users automatically get 1 free generation
-                    const userData = await getUserSubscriptionData();
-                    setSubscriptionData(userData);
-                    const limit = await checkUsageLimit();
-                    setUsageLimit(limit);
+                    try {
+                        const userData = await getUserSubscriptionData();
+                        setSubscriptionData(userData);
+                        const limit = await checkUsageLimit();
+                        setUsageLimit(limit);
+                    } catch (error) {
+                        console.error('Error loading subscription data after sign up:', error);
+                        showToast('Failed to load credit balance. Please refresh the page.', 'error');
+                        // Set default values on error
+                        setSubscriptionData({
+                            credits: 0,
+                            hasPaidOnce: false,
+                            freeGenerationUsed: false,
+                        });
+                        setUsageLimit({ 
+                            canGenerate: true, 
+                            remaining: 1, 
+                            message: '1 free generation available', 
+                            isFree: true 
+                        });
+                    }
                 } else {
                     trackEvent('user_signup_error', { error: result.error });
                     setError(result.error);
@@ -1078,10 +1124,27 @@
                     setEmail('');
                     setPassword('');
                     
-                    const userData = await getUserSubscriptionData();
-                    setSubscriptionData(userData);
-                    const limit = await checkUsageLimit();
-                    setUsageLimit(limit);
+                    try {
+                        const userData = await getUserSubscriptionData();
+                        setSubscriptionData(userData);
+                        const limit = await checkUsageLimit();
+                        setUsageLimit(limit);
+                    } catch (error) {
+                        console.error('Error loading subscription data after sign in:', error);
+                        showToast('Failed to load credit balance. Please refresh the page.', 'error');
+                        // Set default values on error
+                        setSubscriptionData({
+                            credits: 0,
+                            hasPaidOnce: false,
+                            freeGenerationUsed: false,
+                        });
+                        setUsageLimit({ 
+                            canGenerate: false, 
+                            remaining: 0, 
+                            message: 'Unable to load credit balance', 
+                            isFree: false 
+                        });
+                    }
                 } else {
                     trackEvent('user_signin_error', { error: result.error });
                     setError(result.error);
@@ -1111,7 +1174,8 @@
                 try {
                     const { doc, getDoc, collection, getDocs } = window.firebaseModules;
                     
-                    // Get user document
+                    // Get user document - ensure path has even number of segments
+                    // Path: artifacts/{appId}/users/{userId} = 4 segments (even, correct)
                     const userRef = doc(db, `artifacts/${APP_ID}/users/${currentUserId}`);
                     const userSnap = await getDoc(userRef);
                     
@@ -2157,6 +2221,21 @@
                 </div>
             );
         }
+        
+        // Error suppression for old cached code (temporary)
+        const originalError = console.error;
+        console.error = function(...args) {
+            const message = args.join(' ');
+            // Suppress errors from old cached code that no longer exists
+            if (message.includes('loadUserStats') || 
+                message.includes('listening to credits') || 
+                message.includes('auto-saving resume text') ||
+                message.includes('Invalid document reference') && message.includes('/stats')) {
+                // These are from old cached code, ignore them
+                return;
+            }
+            originalError.apply(console, args);
+        };
         
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);

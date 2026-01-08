@@ -1,7 +1,7 @@
 // Service Worker for ResumeForge
-// Version 1.0.0
-const CACHE_NAME = 'resumeforge-v1';
-const RUNTIME_CACHE = 'resumeforge-runtime-v1';
+// Version 1.1.0 - Updated to clear old cache
+const CACHE_NAME = 'resumeforge-v1.1';
+const RUNTIME_CACHE = 'resumeforge-runtime-v1.1';
 
 // Assets to cache on install
 const PRECACHE_ASSETS = [
