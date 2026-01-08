@@ -1,317 +1,347 @@
-# AI Resume Tailor
+# ResumeForge - AI-Powered Resume Tailoring
 
-A high-value, paid utility web application that optimizes resume content for ATS (Applicant Tracking System) keyword alignment using Google's Gemini AI. The app uses a **pay-per-generation credit system** managed through Firebase Firestore.
+ResumeForge is a Progressive Web App (PWA) that uses AI to tailor your resume sections to match job descriptions. It provides keyword matching analysis, improvement recommendations, and visual comparison tools to optimize your resume for ATS (Applicant Tracking System) compatibility.
 
-## 🚀 Features
+## Features
 
-- ✅ **ATS-Optimized Resume Tailoring**: Rewrites resume sections to match job description keywords
-- ✅ **Credit-Based Monetization**: Pay-per-generation system (1 credit = 1 generation)
-- ✅ **Real-Time Credit Balance**: Live updates via Firestore `onSnapshot` listener
-- ✅ **Anonymous Authentication**: Seamless user experience with Firebase Auth
-- ✅ **Secure API Access**: Gemini API calls through Firebase Functions proxy
-- ✅ **Modern UI**: Built with React and Tailwind CSS
+- 🤖 **AI-Powered Resume Tailoring** - Uses Google Gemini 2.5 Flash to tailor resume sections to job descriptions
+- 📊 **Keyword Analysis** - Identifies matched and missing keywords with match percentage scores
+- 💡 **Improvement Tips** - Provides actionable recommendations categorized by priority (high/medium/low)
+- 🔍 **Visual Comparison** - Side-by-side comparison of original vs tailored resume with highlighted changes
+- 📝 **Changes Tracking** - Shows what was added, modified, and improved in your resume
+- 💾 **Save & Manage** - Save tailored resumes to your account for easy access
+- 💳 **Credit-Based System** - Pay-per-use model ($0.50 per generation) with free trial for new users
+- 📱 **Progressive Web App** - Works offline and can be installed on mobile devices
 
-## 📋 Prerequisites
+## Tech Stack
 
-Before you begin, ensure you have:
+- **Frontend**: React (via Babel Standalone), Tailwind CSS
+- **Backend**: Firebase (Firestore, Authentication, Cloud Functions)
+- **AI**: Google Gemini 2.5 Flash API
+- **Payments**: Stripe Checkout
+- **Hosting**: Firebase Hosting
 
-1. **Node.js** (v20 or higher) installed
-2. **Firebase CLI** installed (`npm install -g firebase-tools`)
-3. **Google Account** for Gemini API access
-4. **Firebase Account** (free tier works)
+## Prerequisites
 
-## 🛠️ Setup Instructions
+- Node.js 20+ (for Firebase Functions)
+- Firebase CLI (`npm install -g firebase-tools`)
+- Firebase project with:
+  - Authentication enabled (Email/Password)
+  - Firestore database
+  - Cloud Functions enabled
+  - Hosting configured
+- Google Cloud account with Gemini API access
+- Stripe account (for payments)
 
-### Step 1: Create Firebase Project
+## Setup Instructions
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Click **"Add project"** or **"Create a project"**
-3. Enter project name: `resume-tailor` (or your preferred name)
-4. Follow the setup wizard:
-   - Disable Google Analytics (optional)
-   - Click **"Create project"**
-5. Wait for project creation to complete
+### 1. Clone and Install
 
-### Step 2: Enable Firebase Services
+```bash
+git clone <repository-url>
+cd ResumeTailor
+cd functions
+npm install
+```
 
-#### 2.1 Enable Firestore Database
+### 2. Firebase Configuration
 
-1. In Firebase Console, go to **Build** → **Firestore Database**
-2. Click **"Create database"**
-3. Start in **test mode** (for development)
-4. Choose a location (e.g., `us-central1`)
-5. Click **"Enable"**
-
-#### 2.2 Enable Authentication
-
-1. Go to **Build** → **Authentication**
-2. Click **"Get started"**
-3. Go to **Sign-in method** tab
-4. Enable **Anonymous** authentication:
-   - Click on **Anonymous**
-   - Toggle **Enable**
-   - Click **"Save"**
-
-### Step 3: Get Gemini API Key
-
-1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Sign in with your Google account
-3. Click **"Create API Key"**
-4. Select your Google Cloud project (or create a new one)
-5. Copy the API key (starts with `AIza...`)
-6. **Important**: Save this key securely - you'll need it in Step 5
-
-### Step 4: Initialize Firebase Functions
-
-1. Open terminal in the `ResumeTailor` directory
-2. Run:
+1. **Create/Select Firebase Project**
    ```bash
-   cd functions
-   npm install
-   ```
-3. Initialize Firebase (if not already done):
-   ```bash
-   cd ..
    firebase login
-   firebase init
+   firebase use resume-tailor  # or your project ID
    ```
-   - Select:
-     - ✅ **Functions**
-     - ✅ **Firestore** (for security rules)
-   - Use existing project: Select your `resume-tailor` project
-   - Language: **JavaScript**
-   - ESLint: **No** (or Yes if you prefer)
-   - Install dependencies: **Yes**
 
-### Step 5: Configure Firebase Functions
+2. **Update Firebase Config in `index.html`**
+   - Open `index.html`
+   - Find `FIREBASE_CONFIG` (around line 225)
+   - Replace with your Firebase project configuration:
+     ```javascript
+     const FIREBASE_CONFIG = {
+         apiKey: "YOUR_API_KEY",
+         authDomain: "YOUR_PROJECT.firebaseapp.com",
+         projectId: "YOUR_PROJECT_ID",
+         storageBucket: "YOUR_PROJECT.appspot.com",
+         messagingSenderId: "YOUR_SENDER_ID",
+         appId: "YOUR_APP_ID",
+         measurementId: "YOUR_MEASUREMENT_ID"
+     };
+     ```
 
-Set the Gemini API key and app ID:
-
-```bash
-firebase functions:config:set \
-  gemini.api_key="YOUR_GEMINI_API_KEY_HERE" \
-  app.id="resume-tailor-v1"
-```
-
-**Replace `YOUR_GEMINI_API_KEY_HERE`** with the API key from Step 3.
-
-### Step 6: Deploy Firebase Functions
-
-```bash
-firebase deploy --only functions
-```
-
-Wait for deployment to complete. Note the function URL (you'll see it in the output).
-
-### Step 7: Update Frontend Configuration
-
-1. Open `ResumeTailor.jsx`
-2. Replace the `FIREBASE_CONFIG` object with your Firebase project config:
-
-   **Get your config:**
-   - Go to Firebase Console → Project Settings (gear icon)
-   - Scroll to **"Your apps"** section
-   - Click **"</>"** (Web) icon
-   - Copy the `firebaseConfig` object
-
-   **Update in ResumeTailor.jsx:**
+3. **Update APP_ID** (around line 213)
    ```javascript
-   const FIREBASE_CONFIG = {
-     apiKey: "YOUR_API_KEY",
-     authDomain: "YOUR_PROJECT.firebaseapp.com",
-     projectId: "YOUR_PROJECT_ID",
-     storageBucket: "YOUR_PROJECT.appspot.com",
-     messagingSenderId: "YOUR_SENDER_ID",
-     appId: "YOUR_APP_ID"
-   };
+   const APP_ID = 'resumeforge-v1'; // Keep or change as needed
    ```
 
-3. Update `APP_ID` if you changed it:
+### 3. Stripe Configuration
+
+1. **Get Stripe Keys**
+   - Log into Stripe Dashboard
+   - Get your Publishable Key (starts with `pk_`)
+   - Create a Product and Price ($0.50) and get the Price ID (starts with `price_`)
+
+2. **Update Stripe Config in `index.html`** (around line 238)
    ```javascript
-   const APP_ID = 'resume-tailor-v1';
+   const STRIPE_PUBLISHABLE_KEY = 'pk_test_...'; // Your Stripe publishable key
+   const STRIPE_PRICE_ID = 'price_...'; // Your $0.50 price ID
    ```
 
-### Step 8: Set Up Firestore Security Rules
+3. **Configure Stripe in Firebase Functions**
+   ```bash
+   firebase functions:config:set stripe.secret_key="sk_test_..." stripe.price_id="price_..." stripe.webhook_secret="whsec_..."
+   ```
 
-1. Go to Firebase Console → **Firestore Database** → **Rules**
-2. Replace the rules with:
+### 4. Gemini API Configuration
+
+1. **Get Gemini API Key**
+   - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Create an API key for Gemini 2.5 Flash
+
+2. **Set in Firebase Functions**
+   ```bash
+   firebase functions:config:set gemini.api_key="YOUR_GEMINI_API_KEY"
+   ```
+
+3. **Set App ID (optional, defaults to 'resumeforge-v1')**
+   ```bash
+   firebase functions:config:set app.id="resumeforge-v1"
+   ```
+
+### 5. Firestore Security Rules
+
+Create or update `firestore.rules`:
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // User profile data (credits)
-    match /artifacts/{appId}/users/{userId}/profile/data {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Allow users to read/write their own data
+    // Users collection
     match /artifacts/{appId}/users/{userId} {
+      // Users can only read/write their own data
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Saved resumes subcollection
+      match /saved_resumes/{resumeId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }
 ```
 
-3. Click **"Publish"**
+Deploy rules:
+```bash
+firebase deploy --only firestore:rules
+```
 
-### Step 9: Install Dependencies and Run
-
-If you're using a React build setup:
+### 6. Deploy Firebase Functions
 
 ```bash
-# Install React dependencies (if using Create React App or Vite)
-npm install firebase
-
-# Or if using the component directly, ensure you have:
-# - React
-# - ReactDOM
-# - Firebase SDK
-```
-
-For a simple HTML setup, you can use CDN links (see `index.html` example below).
-
-## 📁 Project Structure
-
-```
-ResumeTailor/
-├── ResumeTailor.jsx          # Main React component
-├── functions/
-│   ├── index.js              # Firebase Functions (Gemini proxy)
-│   └── package.json          # Functions dependencies
-├── README.md                 # This file
-└── firebase.json             # Firebase configuration (auto-generated)
-```
-
-## 🎯 Usage
-
-1. **Start the app** (using your React setup or HTML file)
-2. The app will automatically sign in anonymously
-3. Your credit balance will display (starts at 0)
-4. Click **"Buy 5 Credits ($2.00)"** to add credits (simulated purchase)
-5. Paste a **Job Description** in the first text area
-6. Paste your **Current Resume Section** in the second text area
-7. Click **"Generate Tailored Resume"**
-8. The tailored content will appear in the output panel
-9. Click **"Copy Tailored Text"** to copy to clipboard
-
-## 💳 Credit System
-
-- **Cost per generation**: 1 credit
-- **Purchase bundle**: 5 credits for $2.00 (simulated)
-- **Credit storage**: Firestore path: `/artifacts/{appId}/users/{userId}/profile/data/credits_balance`
-- **Real-time updates**: Credit balance updates instantly via `onSnapshot`
-
-## 🔒 Security Notes
-
-- ✅ Gemini API key is stored server-side (Firebase Functions)
-- ✅ Anonymous authentication for user tracking
-- ✅ Firestore security rules prevent unauthorized access
-- ✅ Credits are deducted **before** API call (prevents abuse)
-
-## 🧪 Testing
-
-1. **Test credit purchase**:
-   - Click "Buy 5 Credits"
-   - Verify balance updates to 5
-
-2. **Test generation**:
-   - Enter job description and resume section
-   - Click "Generate Tailored Resume"
-   - Verify credits decrease by 1
-   - Verify tailored text appears
-
-3. **Test insufficient credits**:
-   - Set credits to 0
-   - Try to generate
-   - Should show error message
-
-## 🚀 Deployment
-
-### Option 1: Firebase Hosting (Recommended)
-
-```bash
-firebase init hosting
-# Select: Use existing project, public directory: "public" (or create it)
-# Single-page app: Yes
-
-# Create public/index.html that loads your React app
-# Or build your React app and deploy the build folder
-
-firebase deploy --only hosting
-```
-
-### Option 2: Your Own Hosting
-
-1. Build your React app
-2. Upload the build files to your hosting
-3. Ensure Firebase config is correct
-4. Deploy Firebase Functions separately
-
-## 📝 Configuration Reference
-
-### Firebase Functions Config
-
-```bash
-# View current config
-firebase functions:config:get
-
-# Set config values
-firebase functions:config:set \
-  gemini.api_key="YOUR_KEY" \
-  app.id="resume-tailor-v1"
-
-# Deploy after config changes
+cd functions
+npm install
+cd ..
 firebase deploy --only functions
 ```
 
-### Firestore Path Structure
+### 7. Deploy Frontend
 
-```
-artifacts/
-  └── {appId}/           # e.g., "resume-tailor-v1"
-      └── users/
-          └── {userId}/  # Firebase Auth UID
-              └── profile/
-                  └── data/
-                      ├── credits_balance: number
-                      ├── created_at: timestamp
-                      └── updated_at: timestamp
+```bash
+firebase deploy --only hosting
 ```
 
-## 🐛 Troubleshooting
+## Development
 
-### "Failed to initialize"
-- Check Firebase config in `ResumeTailor.jsx`
-- Verify Anonymous auth is enabled
-- Check browser console for errors
+### Local Development
 
-### "Gemini API is not configured"
-- Run: `firebase functions:config:set gemini.api_key="YOUR_KEY"`
-- Redeploy: `firebase deploy --only functions`
+1. **Start Firebase Emulators** (optional)
+   ```bash
+   firebase emulators:start
+   ```
 
-### "Insufficient credits" but balance shows credits
-- Check Firestore rules allow writes
-- Verify user is authenticated
-- Check browser console for Firestore errors
+2. **Serve Functions Locally**
+   ```bash
+   cd functions
+   npm run serve
+   ```
 
-### Credits not updating in real-time
-- Verify `onSnapshot` is set up correctly
-- Check Firestore rules allow reads
-- Check browser console for listener errors
+3. **Test Locally**
+   - Open `index.html` in a browser
+   - Or use a local server:
+     ```bash
+     python -m http.server 8000
+     # or
+     npx serve .
+     ```
 
-## 📚 Additional Resources
+### Firebase Functions Scripts
 
-- [Firebase Documentation](https://firebase.google.com/docs)
-- [Gemini API Documentation](https://ai.google.dev/docs)
-- [Firestore Security Rules](https://firebase.google.com/docs/firestore/security/get-started)
-- [Firebase Functions](https://firebase.google.com/docs/functions)
+```bash
+cd functions
 
-## 📄 License
+# Run emulator
+npm run serve
 
-This project is proprietary. All rights reserved.
+# Deploy functions
+npm run deploy
 
----
+# View logs
+npm run logs
+```
 
-**Need Help?** Check the troubleshooting section or review Firebase/Firestore logs in the Firebase Console.
+## Project Structure
 
+```
+ResumeTailor/
+├── index.html              # Main application file (React app)
+├── manifest.json           # PWA manifest
+├── sw.js                   # Service worker for offline support
+├── firebase.json           # Firebase configuration
+├── functions/
+│   ├── index.js           # Cloud Functions (Stripe, Gemini API)
+│   ├── package.json       # Functions dependencies
+│   └── node_modules/      # Installed dependencies
+└── README.md              # This file
+```
+
+## API Endpoints (Cloud Functions)
+
+### `generateTailoredResume`
+Generates a tailored resume section based on job description.
+
+**Parameters:**
+- `jobDescription` (string, required): The job description
+- `resumeSection` (string, required): Current resume section to tailor
+- `sectionType` (string, optional): Type of section (general, experience, education, skills, summary)
+
+**Returns:**
+```json
+{
+  "success": true,
+  "tailoredResume": "Tailored resume text...",
+  "keywordMatches": {
+    "matched": ["keyword1", "keyword2"],
+    "missing": ["keyword3", "keyword4"],
+    "matchPercentage": 75
+  },
+  "improvementTips": [
+    {
+      "tip": "Improvement suggestion",
+      "category": "ats|achievements|skills|formatting",
+      "priority": "high|medium|low"
+    }
+  ],
+  "changes": {
+    "added": ["Added phrases"],
+    "modified": ["Modified sections"],
+    "improvements": ["Key improvements"]
+  }
+}
+```
+
+### `createCheckoutSession`
+Creates a Stripe Checkout session for purchasing credits.
+
+**Returns:**
+```json
+{
+  "sessionId": "cs_...",
+  "url": "https://checkout.stripe.com/..."
+}
+```
+
+### `stripeWebhook`
+Handles Stripe webhook events (payment success, subscription updates).
+
+## Usage
+
+1. **Sign Up/Sign In**: Create an account or sign in with email/password
+2. **Enter Job Description**: Paste the full job description
+3. **Enter Resume Section**: Paste the section you want to tailor
+4. **Select Section Type**: Choose the type (Experience, Education, Skills, etc.)
+5. **Tailor Resume**: Click "Tailor Resume" button
+6. **Review Results**:
+   - View keyword match analysis
+   - See tailored resume with highlighted changes
+   - Read improvement tips
+   - Compare original vs tailored (toggle comparison view)
+7. **Save or Copy**: Save to your account or copy to clipboard
+
+## Pricing
+
+- **Free**: 1 free generation for new users
+- **Paid**: $0.50 per generation (purchased via Stripe)
+
+## Environment Variables (Firebase Functions Config)
+
+Required Firebase Functions configuration:
+
+```bash
+# Gemini API
+firebase functions:config:set gemini.api_key="YOUR_KEY"
+
+# Stripe
+firebase functions:config:set stripe.secret_key="sk_..."
+firebase functions:config:set stripe.price_id="price_..."
+firebase functions:config:set stripe.webhook_secret="whsec_..."
+
+# App ID (optional)
+firebase functions:config:set app.id="resumeforge-v1"
+```
+
+View current config:
+```bash
+firebase functions:config:get
+```
+
+## Troubleshooting
+
+### Functions Not Working
+- Verify Firebase Functions are deployed: `firebase deploy --only functions`
+- Check logs: `firebase functions:log`
+- Verify API keys are set: `firebase functions:config:get`
+
+### Authentication Issues
+- Ensure Firebase Authentication is enabled in Firebase Console
+- Check that Email/Password provider is enabled
+
+### Stripe Payments Not Working
+- Verify Stripe keys are correct (test vs production)
+- Check Stripe webhook is configured and pointing to your function URL
+- Verify webhook secret matches in Firebase config
+
+### Gemini API Errors
+- Check API key is valid and has quota remaining
+- Verify the API key has access to Gemini 2.5 Flash
+- Check Firebase Functions logs for detailed error messages
+
+### Firestore Permission Errors
+- Deploy security rules: `firebase deploy --only firestore:rules`
+- Verify user is authenticated before accessing Firestore
+- Check rules match the collection structure
+
+## Security Notes
+
+- Firebase API keys are safe to expose in client-side code (they're meant to be public)
+- Sensitive keys (Stripe secret, Gemini API key) are stored server-side in Firebase Functions config
+- Always use Firestore security rules to protect user data
+- Consider implementing Firebase App Check for additional protection
+
+## License
+
+[Add your license here]
+
+## Support
+
+For issues or questions, please [create an issue](link-to-issues) or contact [your-email].
+
+## Changelog
+
+### v1.0.0
+- Initial release
+- AI-powered resume tailoring
+- Keyword matching analysis
+- Improvement tips and recommendations
+- Visual comparison view
+- Changes tracking
+- Save and manage resumes
+- Stripe payment integration
