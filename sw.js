@@ -1,12 +1,11 @@
 // Service Worker for ResumeForge
-// Version 1.2.0 - Force cache clear for old code removal
-const CACHE_NAME = 'resumeforge-v1.2';
-const RUNTIME_CACHE = 'resumeforge-runtime-v1.2';
+// Version 1.3.0 - Force cache clear, don't cache index.html
+const CACHE_NAME = 'resumeforge-v1.3';
+const RUNTIME_CACHE = 'resumeforge-runtime-v1.3';
 
 // Assets to cache on install
+// NOTE: We don't cache index.html to ensure fresh code is always loaded
 const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json'
 ];
 
@@ -59,6 +58,18 @@ self.addEventListener('fetch', (event) => {
       event.request.url.includes('stripe') ||
       event.request.url.includes('googleapis') ||
       event.request.url.includes('gstatic')) {
+    return;
+  }
+
+  // Always fetch index.html fresh from network (never cache it)
+  if (event.request.url.includes('/index.html') || event.request.url === self.location.origin + '/') {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' })
+        .catch(() => {
+          // Only use cache as absolute last resort if network fails
+          return caches.match(event.request);
+        })
+    );
     return;
   }
 

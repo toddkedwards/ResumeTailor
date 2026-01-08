@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>ResumeForge - AI-Powered Resume Tailoring</title>
     
     <!-- SEO Meta Tags -->
@@ -651,7 +654,7 @@
             useEffect(() => {
                 if ('serviceWorker' in navigator) {
                     window.addEventListener('load', () => {
-                        navigator.serviceWorker.register('/sw.js?v=1.2')
+                        navigator.serviceWorker.register('/sw.js?v=1.3')
                             .then((registration) => {
                                 console.log('Service Worker registered:', registration.scope);
                                 
@@ -2279,22 +2282,36 @@
         };
         
         // Force clear service worker cache on load to remove old cached code
-        if ('serviceWorker' in navigator) {
+        // Only do this once per session to avoid infinite loops
+        const cacheCleared = sessionStorage.getItem('resumeforge_cache_cleared');
+        if (!cacheCleared && 'serviceWorker' in navigator) {
+            sessionStorage.setItem('resumeforge_cache_cleared', 'true');
             navigator.serviceWorker.getRegistrations().then(registrations => {
-                registrations.forEach(registration => {
-                    // Unregister old service workers to clear cache
-                    registration.unregister().then(() => {
-                        console.log('Old Service Worker unregistered to clear cache');
-                        // Clear all caches
-                        if ('caches' in window) {
-                            caches.keys().then(cacheNames => {
-                                cacheNames.forEach(cacheName => {
-                                    caches.delete(cacheName);
+                if (registrations.length > 0) {
+                    registrations.forEach(registration => {
+                        // Unregister old service workers to clear cache
+                        registration.unregister().then(() => {
+                            console.log('Old Service Worker unregistered to clear cache');
+                            // Clear all caches aggressively
+                            if ('caches' in window) {
+                                caches.keys().then(cacheNames => {
+                                    return Promise.all(
+                                        cacheNames.map(cacheName => {
+                                            console.log('Deleting cache:', cacheName);
+                                            return caches.delete(cacheName);
+                                        })
+                                    );
+                                }).then(() => {
+                                    console.log('All caches cleared. Reloading page to get fresh code...');
+                                    // Force reload to get fresh code (only once)
+                                    setTimeout(() => {
+                                        window.location.reload(true);
+                                    }, 500);
                                 });
-                            });
-                        }
+                            }
+                        });
                     });
-                });
+                }
             });
         }
         
