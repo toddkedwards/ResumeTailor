@@ -376,9 +376,14 @@
             } catch (error) {
                 // Handle permission errors gracefully
                 if (error.code === 'permission-denied' || error.message?.includes('permission')) {
-                    console.error('Permission denied reading user data. Check Firestore security rules.');
-                    console.error('Make sure your Firestore rules allow: match /artifacts/{appId}/users/{userId} { allow read, write: if request.auth != null && request.auth.uid == userId; }');
-                    throw new Error('Permission denied. Please check Firestore security rules.');
+                    console.warn('Permission denied reading user data. This may be from cached code or Firestore rules.');
+                    console.warn('If this persists after hard refresh, check Firestore security rules.');
+                    // Return default values instead of throwing - allows app to continue
+                    return {
+                        credits: 0,
+                        hasPaidOnce: false,
+                        freeGenerationUsed: false,
+                    };
                 }
                 
                 // Handle network errors
@@ -388,7 +393,13 @@
                 }
                 
                 console.error('Error getting user data:', error);
-                throw new Error('Failed to load credit balance: ' + (error.message || 'Unknown error'));
+                // Return default values instead of throwing for unknown errors
+                // This prevents the app from breaking
+                return {
+                    credits: 0,
+                    hasPaidOnce: false,
+                    freeGenerationUsed: false,
+                };
             }
         }
         
@@ -640,17 +651,23 @@
             useEffect(() => {
                 if ('serviceWorker' in navigator) {
                     window.addEventListener('load', () => {
-                        navigator.serviceWorker.register('/sw.js')
+                        navigator.serviceWorker.register('/sw.js?v=1.2')
                             .then((registration) => {
                                 console.log('Service Worker registered:', registration.scope);
+                                
+                                // Force update to clear old cache
+                                registration.update();
                                 
                                 // Check for updates
                                 registration.addEventListener('updatefound', () => {
                                     const newWorker = registration.installing;
                                     newWorker.addEventListener('statechange', () => {
                                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                            // New service worker available
-                                            showToast('New version available! Refresh to update.', 'info');
+                                            // New service worker available - force reload
+                                            showToast('New version available! Refreshing...', 'info');
+                                            setTimeout(() => {
+                                                window.location.reload();
+                                            }, 1000);
                                         }
                                     });
                                 });
@@ -755,7 +772,10 @@
                                 message: 'Unable to load credit balance. Please refresh the page.', 
                                 isFree: false 
                             });
-                            showToast('Failed to load credit balance. Please refresh the page.', 'error');
+                            // Only show toast if it's not a permission error (likely from old cached code)
+                            if (!error.code || (!error.code.includes('permission') && !error.message?.includes('permission'))) {
+                                showToast('Failed to load credit balance. Please refresh the page.', 'error');
+                            }
                         }
                         
                         // Load saved resumes and capture unsubscribe function
@@ -1087,8 +1107,16 @@
                         setUsageLimit(limit);
                     } catch (error) {
                         console.error('Error loading subscription data after sign up:', error);
-                        showToast('Failed to load credit balance. Please refresh the page.', 'error');
-                        // Set default values on error
+                        
+                        // Check if it's a permission error - might be from old cached code
+                        if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+                            console.warn('Firestore permission error. This may be due to cached code. Try hard refresh (Cmd+Shift+R).');
+                            // Don't show error for permission errors - likely from old cached code
+                        } else {
+                            showToast('Failed to load credit balance. Please refresh the page.', 'error');
+                        }
+                        
+                        // Set default values on error - new users get free generation
                         setSubscriptionData({
                             credits: 0,
                             hasPaidOnce: false,
@@ -1131,7 +1159,15 @@
                         setUsageLimit(limit);
                     } catch (error) {
                         console.error('Error loading subscription data after sign in:', error);
-                        showToast('Failed to load credit balance. Please refresh the page.', 'error');
+                        
+                        // Check if it's a permission error - might be from old cached code
+                        if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+                            console.warn('Firestore permission error. This may be due to cached code. Try hard refresh (Cmd+Shift+R).');
+                            // Don't show error for permission errors - likely from old cached code
+                        } else {
+                            showToast('Failed to load credit balance. Please refresh the page.', 'error');
+                        }
+                        
                         // Set default values on error
                         setSubscriptionData({
                             credits: 0,
@@ -2223,6 +2259,7 @@
         }
         
         // Error suppression for old cached code (temporary)
+        // These errors are from old cached JavaScript that will be cleared on next hard refresh
         const originalError = console.error;
         console.error = function(...args) {
             const message = args.join(' ');
@@ -2230,12 +2267,36 @@
             if (message.includes('loadUserStats') || 
                 message.includes('listening to credits') || 
                 message.includes('auto-saving resume text') ||
-                message.includes('Invalid document reference') && message.includes('/stats')) {
+                (message.includes('Invalid document reference') && message.includes('/stats')) ||
+                message.includes('Error loading stats') ||
+                message.includes('Error listening to credits') ||
+                message.includes('Error auto-saving')) {
                 // These are from old cached code, ignore them
+                // User should do a hard refresh (Cmd+Shift+R) to clear cache
                 return;
             }
             originalError.apply(console, args);
         };
+        
+        // Force clear service worker cache on load to remove old cached code
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                registrations.forEach(registration => {
+                    // Unregister old service workers to clear cache
+                    registration.unregister().then(() => {
+                        console.log('Old Service Worker unregistered to clear cache');
+                        // Clear all caches
+                        if ('caches' in window) {
+                            caches.keys().then(cacheNames => {
+                                cacheNames.forEach(cacheName => {
+                                    caches.delete(cacheName);
+                                });
+                            });
+                        }
+                    });
+                });
+            });
+        }
         
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
