@@ -246,7 +246,7 @@
         
         // Stripe Configuration - REPLACE WITH YOUR STRIPE PUBLISHABLE KEY
         const STRIPE_PUBLISHABLE_KEY = 'pk_test_51RbOo8KfMIBsUfylIZIdikgVnL7C1Mfdj61d8AJj3splHLHAloyepn6y4Olte2QtGviWpBE8OuYqN6F20LKwLJQl00aZ5sdgj0';
-        const STRIPE_PRICE_ID = 'price_1Skud7QQl8oxreSlbAkOS13N'; // Your $0.50 per generation price ID from Stripe (matches backend)
+        const STRIPE_PRICE_ID = 'price_1Skud7QQl8oxreSlbAkOS13N'; // $1.00 for 5 credits - UPDATE THIS with your actual Stripe price ID
         
         // Firebase initialization
         let app, auth, db, functions;
@@ -372,14 +372,12 @@
                     return {
                         credits: data.credits || 0,
                         hasPaidOnce: data.hasPaidOnce || false,
-                        freeGenerationUsed: data.freeGenerationUsed || false,
                     };
                 }
                 // Document doesn't exist yet - return default values
                 return {
                     credits: 0,
                     hasPaidOnce: false,
-                    freeGenerationUsed: false,
                 };
             } catch (error) {
                 // Handle permission errors gracefully
@@ -390,7 +388,6 @@
                     return {
                         credits: 0,
                         hasPaidOnce: false,
-                        freeGenerationUsed: false,
                     };
                 }
                 
@@ -406,58 +403,23 @@
                 return {
                     credits: 0,
                     hasPaidOnce: false,
-                    freeGenerationUsed: false,
                 };
             }
         }
         
         async function checkUsageLimit() {
-            // Check localStorage first - this prevents abuse across sign-outs
-            const localStorageFreeUsed = localStorage.getItem('resumeforge_free_used');
-            if (localStorageFreeUsed === 'true') {
-                // Free generation already used on this device/browser
-                const userData = await getUserSubscriptionData();
-                const credits = userData?.credits || 0;
-                
-                if (credits > 0) {
-                    return { 
-                        canGenerate: true, 
-                        remaining: credits, 
-                        message: `${credits} generation${credits !== 1 ? 's' : ''} available`, 
-                        isFree: false 
-                    };
-                }
-                
+            // No free generations - only credits
+            const userData = await getUserSubscriptionData();
+            if (!userData) {
                 return { 
                     canGenerate: false, 
                     remaining: 0, 
-                    message: 'No credits available. Please purchase a generation.', 
+                    message: 'No credits available. Please purchase credits to continue.', 
                     isFree: false 
                 };
             }
             
-            // Free generation not used yet - check Firestore
-            const userData = await getUserSubscriptionData();
-            if (!userData) {
-                return { canGenerate: true, remaining: 1, message: '1 free generation available', isFree: true };
-            }
-            
-            const { credits, freeGenerationUsed } = userData;
-            
-            // If Firestore says free generation is used, sync to localStorage
-            if (freeGenerationUsed) {
-                localStorage.setItem('resumeforge_free_used', 'true');
-            }
-            
-            // Check if free generation is available
-            if (!freeGenerationUsed) {
-                return { 
-                    canGenerate: true, 
-                    remaining: 1, 
-                    message: '1 free generation available', 
-                    isFree: true 
-                };
-            }
+            const { credits } = userData;
             
             // Check if user has credits
             if (credits > 0) {
@@ -472,7 +434,7 @@
             return { 
                 canGenerate: false, 
                 remaining: 0, 
-                message: 'No credits available. Please purchase a generation.', 
+                message: 'No credits available. Please purchase credits to continue.', 
                 isFree: false 
             };
         }
@@ -486,12 +448,7 @@
                 const userDoc = await getDoc(userRef);
                 
                 const userData = userDoc.exists() ? userDoc.data() : {};
-                // Default to 0 for credits and false for freeGenerationUsed if undefined
-                const freeGenerationUsed = userData.freeGenerationUsed ?? false;
                 const credits = userData.credits ?? 0;
-                
-                // Check localStorage first
-                const localStorageFreeUsed = localStorage.getItem('resumeforge_free_used') === 'true';
                 
                 let updateData = {
                     lastGenerationDate: serverTimestamp(),
@@ -501,22 +458,12 @@
                 const currentTotal = userData.totalGenerations || 0;
                 updateData.totalGenerations = currentTotal + 1;
                 
-                // Use free generation first (if not used in localStorage OR Firestore)
-                if (!localStorageFreeUsed && !freeGenerationUsed) {
-                    updateData.freeGenerationUsed = true;
-                    // Mark as used in localStorage to prevent abuse
-                    localStorage.setItem('resumeforge_free_used', 'true');
-                } else if (credits > 0) {
-                    // Deduct credit
+                // Deduct credit (no free generations)
+                if (credits > 0) {
                     updateData.credits = credits - 1;
                 } else {
                     // Should not happen if checkUsageLimit worked correctly
                     throw new Error('No credits available');
-                }
-                
-                // Always ensure freeGenerationUsed is set if it was already used
-                if (freeGenerationUsed || localStorageFreeUsed) {
-                    updateData.freeGenerationUsed = true;
                 }
                 
                 console.log('incrementUsage: Updating with data', updateData);
@@ -528,7 +475,6 @@
                     await setDoc(userRef, {
                         ...updateData,
                         credits: updateData.credits ?? 0,
-                        freeGenerationUsed: updateData.freeGenerationUsed ?? false,
                         hasPaidOnce: false,
                         totalGenerations: 1,
                     });
@@ -644,6 +590,9 @@
             const [password, setPassword] = useState('');
             const [authLoading, setAuthLoading] = useState(false);
             const [checkoutLoading, setCheckoutLoading] = useState(false);
+            const [showLanding, setShowLanding] = useState(!user); // Show landing page when not logged in
+            const [uploadedResume, setUploadedResume] = useState('');
+            const [uploadedFileName, setUploadedFileName] = useState('');
             
             // Theme state - initialize from localStorage or default to light
             const [isDark, setIsDark] = useState(() => {
@@ -815,12 +764,14 @@
                         
                         // Close auth modal if open
                         setShowAuthModal(false);
+                        setShowLanding(false);
                     } else {
-                        // No user - show auth modal and reset state
+                        // No user - show landing page and reset state
                         setUser(null);
                         setSubscriptionData(null);
                         setUsageLimit({ canGenerate: false, remaining: 0, message: 'Please sign in to continue', isFree: false });
-                        setShowAuthModal(true); // Show auth modal by default
+                        setShowAuthModal(false);
+                        setShowLanding(true);
                         setFirebaseReady(true);
                         currentUserId = null;
                     }
@@ -1124,14 +1075,15 @@
                 const result = await signUpWithEmail(email, password);
                 setAuthLoading(false);
                 
-                if (result.success) {
-                    trackEvent('user_signup_success');
-                    showToast('Account created successfully!', 'success');
-                    setShowAuthModal(false);
+                    if (result.success) {
+                        trackEvent('user_signup_success');
+                        showToast('Account created successfully!', 'success');
+                        setShowAuthModal(false);
+                        setShowLanding(false);
                     setEmail('');
                     setPassword('');
                     
-                    // New users automatically get 1 free generation
+                    // Initialize user data
                     try {
                         const userData = await getUserSubscriptionData();
                         setSubscriptionData(userData);
@@ -1148,17 +1100,16 @@
                             showToast('Failed to load credit balance. Please refresh the page.', 'error');
                         }
                         
-                        // Set default values on error - new users get free generation
+                        // Set default values on error
                         setSubscriptionData({
                             credits: 0,
                             hasPaidOnce: false,
-                            freeGenerationUsed: false,
                         });
                         setUsageLimit({ 
-                            canGenerate: true, 
-                            remaining: 1, 
-                            message: '1 free generation available', 
-                            isFree: true 
+                            canGenerate: false, 
+                            remaining: 0, 
+                            message: 'No credits available. Please purchase credits.', 
+                            isFree: false 
                         });
                     }
                 } else {
@@ -1183,6 +1134,7 @@
                     setShowAuthModal(false);
                     setEmail('');
                     setPassword('');
+                    setShowLanding(false);
                     
                     try {
                         const userData = await getUserSubscriptionData();
@@ -1204,7 +1156,6 @@
                         setSubscriptionData({
                             credits: 0,
                             hasPaidOnce: false,
-                            freeGenerationUsed: false,
                         });
                         setUsageLimit({ 
                             canGenerate: false, 
@@ -1260,11 +1211,10 @@
                     
                     const userData = userSnap.exists() ? userSnap.data() : {};
                     
-                    // Calculate credits used (total - remaining - free if not used)
+                    // Calculate credits used (total - remaining)
                     const totalGens = userData.totalGenerations || 0;
                     const remainingCredits = userData.credits || 0;
-                    const freeUsed = userData.freeGenerationUsed || false;
-                    const creditsUsed = Math.max(0, totalGens - remainingCredits - (freeUsed ? 0 : 1));
+                    const creditsUsed = Math.max(0, totalGens - remainingCredits);
                     
                     // Format dates safely
                     let accountCreated = 'N/A';
@@ -1299,7 +1249,6 @@
                         creditsUsed: creditsUsed,
                         creditsRemaining: remainingCredits,
                         hasPaidOnce: userData.hasPaidOnce || false,
-                        freeGenerationUsed: freeUsed,
                         accountCreated: accountCreated,
                         lastGeneration: lastGeneration
                     };
@@ -1447,8 +1396,57 @@
                 URL.revokeObjectURL(url);
             }
             
+            async function handleResumeUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+                if (!allowedTypes.includes(file.type)) {
+                    showToast('Please upload a PDF, DOC, DOCX, or TXT file', 'error');
+                    return;
+                }
+                
+                if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                    showToast('File size must be less than 5MB', 'error');
+                    return;
+                }
+                
+                setUploadedFileName(file.name);
+                setLoading(true);
+                
+                try {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        const text = e.target.result;
+                        // For PDF files, we'd need a PDF parser library
+                        // For now, handle text files and show a message for PDFs
+                        if (file.type === 'application/pdf') {
+                            showToast('PDF parsing requires additional setup. Please paste your resume text manually or convert to DOC/TXT.', 'error');
+                            setLoading(false);
+                            return;
+                        }
+                        
+                        setResumeSection(text);
+                        setUploadedResume(text);
+                        showToast('Resume uploaded successfully!', 'success');
+                        setLoading(false);
+                    };
+                    
+                    if (file.type === 'text/plain') {
+                        reader.readAsText(file);
+                    } else {
+                        // For DOC/DOCX, we'd need a parser
+                        showToast('Please convert DOC/DOCX to TXT or paste the text manually', 'error');
+                        setLoading(false);
+                    }
+                } catch (error) {
+                    console.error('Error reading file:', error);
+                    showToast('Error reading file. Please try again.', 'error');
+                    setLoading(false);
+                }
+            }
+            
             const credits = subscriptionData?.credits || 0;
-            const freeGenAvailable = !subscriptionData?.freeGenerationUsed;
             const hasPaidOnce = subscriptionData?.hasPaidOnce || false;
             
             return (
@@ -1482,6 +1480,83 @@
                         </div>
                     )}
                     
+                    {/* Landing Page */}
+                    {!user && showLanding && (
+                        <div className="max-w-6xl mx-auto mb-12">
+                            <div className={`rounded-3xl p-12 text-center ${
+                                isDark 
+                                    ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700' 
+                                    : 'bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-200'
+                            }`}>
+                                <h2 className={`text-5xl font-bold mb-4 ${
+                                    isDark ? 'text-white' : 'text-slate-900'
+                                }`}>
+                                    AI-Powered Resume Tailoring
+                                </h2>
+                                <p className={`text-xl mb-8 ${
+                                    isDark ? 'text-slate-300' : 'text-slate-600'
+                                }`}>
+                                    Optimize your resume for ATS keyword alignment. Get tailored resumes that match job descriptions perfectly.
+                                </p>
+                                <div className="flex flex-wrap justify-center gap-4 mb-8">
+                                    <div className={`px-6 py-4 rounded-xl ${
+                                        isDark ? 'bg-slate-700' : 'bg-white'
+                                    }`}>
+                                        <div className={`text-2xl font-bold mb-1 ${
+                                            isDark ? 'text-white' : 'text-slate-900'
+                                        }`}>5 Credits</div>
+                                        <div className={`text-sm ${
+                                            isDark ? 'text-slate-400' : 'text-slate-600'
+                                        }`}>Only $1.00</div>
+                                    </div>
+                                    <div className={`px-6 py-4 rounded-xl ${
+                                        isDark ? 'bg-slate-700' : 'bg-white'
+                                    }`}>
+                                        <div className={`text-2xl font-bold mb-1 ${
+                                            isDark ? 'text-white' : 'text-slate-900'
+                                        }`}>AI-Powered</div>
+                                        <div className={`text-sm ${
+                                            isDark ? 'text-slate-400' : 'text-slate-600'
+                                        }`}>Keyword Matching</div>
+                                    </div>
+                                    <div className={`px-6 py-4 rounded-xl ${
+                                        isDark ? 'bg-slate-700' : 'bg-white'
+                                    }`}>
+                                        <div className={`text-2xl font-bold mb-1 ${
+                                            isDark ? 'text-white' : 'text-slate-900'
+                                        }`}>Instant</div>
+                                        <div className={`text-sm ${
+                                            isDark ? 'text-slate-400' : 'text-slate-600'
+                                        }`}>Results</div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setShowAuthModal(true);
+                                        trackEvent('landing_signup_clicked');
+                                    }}
+                                    className="px-8 py-4 text-lg font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-colors shadow-lg hover:shadow-xl"
+                                >
+                                    Get Started - Sign Up Now
+                                </button>
+                                <p className={`mt-4 text-sm ${
+                                    isDark ? 'text-slate-400' : 'text-slate-500'
+                                }`}>
+                                    Already have an account?{' '}
+                                    <button
+                                        onClick={() => {
+                                            setShowAuthModal(true);
+                                            setAuthMode('signin');
+                                        }}
+                                        className="text-violet-600 hover:text-violet-700 font-semibold"
+                                    >
+                                        Sign In
+                                    </button>
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    
                     <div id="main-content" className="max-w-6xl mx-auto animate-fade-in">
                         {/* Header with Account Info */}
                         <div className="flex justify-between items-center mb-6">
@@ -1497,37 +1572,31 @@
                                     Optimize your resume for ATS keyword alignment
                                 </p>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
                                 {user ? (
                                     <>
-                                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg">
-                                            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
+                                            <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                             </svg>
                                             <div className="text-right">
-                                                <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Signed in as</div>
-                                                <div className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>{user.email}</div>
+                                                <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{user.email?.split('@')[0]}</div>
                                             </div>
                                         </div>
-                                        <div className="h-6 w-px bg-slate-300 dark:bg-slate-600"></div>
                                         <button
                                             onClick={() => {
                                                 setShowSavedResumes(!showSavedResumes);
                                                 trackEvent('saved_resumes_toggled');
                                             }}
                                             aria-label="View saved resumes"
-                                            className={`px-4 py-2 text-sm rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 ${
+                                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                                                 isDark 
-                                                    ? 'bg-slate-700 text-white hover:bg-slate-600 border border-slate-600' 
-                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+                                                    ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                             }`}
+                                            title={`${savedResumes.length} saved`}
                                         >
-                                            <span className="flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                                </svg>
-                                                Saved ({savedResumes.length})
-                                            </span>
+                                            📁 {savedResumes.length}
                                         </button>
                                         <button
                                             onClick={() => {
@@ -1535,22 +1604,47 @@
                                                 trackEvent('stats_modal_opened');
                                             }}
                                             aria-label="View statistics"
-                                            className={`px-4 py-2 text-sm rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 ${
+                                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                                                 isDark 
                                                     ? 'bg-blue-600 text-white hover:bg-blue-700' 
                                                     : 'bg-blue-500 text-white hover:bg-blue-600'
                                             }`}
                                         >
-                                            <span className="flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                                </svg>
-                                                Stats
-                                            </span>
+                                            📊
+                                        </button>
+                                        <button
+                                            onClick={toggleTheme}
+                                            aria-label="Toggle theme"
+                                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                                                isDark 
+                                                    ? 'bg-slate-700 text-yellow-400 hover:bg-slate-600' 
+                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            {isDark ? '☀️' : '🌙'}
+                                        </button>
+                                        <div className={`px-3 py-1.5 rounded-lg ${
+                                            isDark ? 'bg-slate-800' : 'bg-slate-50'
+                                        }`}>
+                                            <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Credits</div>
+                                            <div className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{credits}</div>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                trackEvent('pricing_modal_opened');
+                                                setShowPricingModal(true);
+                                            }}
+                                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                                                isDark
+                                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                                    : 'bg-violet-600 text-white hover:bg-violet-700'
+                                            }`}
+                                        >
+                                            Buy ($1.00)
                                         </button>
                                         <button
                                             onClick={handleSignOut}
-                                            className={`px-4 py-2 text-sm rounded-xl transition-colors ${
+                                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                                                 isDark 
                                                     ? 'bg-red-600 text-white hover:bg-red-700' 
                                                     : 'bg-red-500 text-white hover:bg-red-600'
@@ -1558,66 +1652,33 @@
                                         >
                                             Sign Out
                                         </button>
-                                        <div className="h-6 w-px bg-slate-300 dark:bg-slate-600"></div>
-                                        <button
-                                            onClick={toggleTheme}
-                                            aria-label="Toggle theme"
-                                            className={`px-4 py-2 text-sm rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 ${
-                                                isDark 
-                                                    ? 'bg-slate-700 text-yellow-400 hover:bg-slate-600 border border-slate-600' 
-                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
-                                            }`}
-                                        >
-                                            <span className="flex items-center gap-2">
-                                                {isDark ? (
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                                                    </svg>
-                                                ) : (
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                                                    </svg>
-                                                )}
-                                                {isDark ? 'Light' : 'Dark'}
-                                            </span>
-                                        </button>
-                                        <div className="h-6 w-px bg-slate-300 dark:bg-slate-600"></div>
-                                        <div className="text-right">
-                                            <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Credits</div>
-                                            <div className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{credits}</div>
-                                        </div>
                                     </>
                                 ) : (
-                                    <button
-                                        onClick={() => {
-                                            trackEvent('auth_modal_opened');
-                                            setShowAuthModal(true);
-                                        }}
-                                        aria-label="Sign in or sign up"
-                                        className="px-4 py-2 text-sm text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
-                                    >
-                                        Sign In / Sign Up
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                trackEvent('auth_modal_opened');
+                                                setShowAuthModal(true);
+                                            }}
+                                            className="px-4 py-2 text-sm text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors"
+                                        >
+                                            Sign In
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                trackEvent('pricing_modal_opened');
+                                                setShowPricingModal(true);
+                                            }}
+                                            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                                                isDark
+                                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                                    : 'bg-violet-600 text-white hover:bg-violet-700'
+                                            }`}
+                                        >
+                                            Buy Credits ($1.00)
+                                        </button>
+                                    </>
                                 )}
-                                <button
-                                    onClick={() => {
-                                        trackEvent('pricing_modal_opened');
-                                        setShowPricingModal(true);
-                                    }}
-                                    aria-label="Buy more generations"
-                                    className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 ${
-                                        isDark
-                                            ? 'bg-blue-600 text-white hover:bg-blue-700 border-2 border-blue-500'
-                                            : 'text-violet-600 border-2 border-violet-600 hover:bg-violet-50'
-                                    }`}
-                                >
-                                    <span className="flex items-center gap-2">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                                        </svg>
-                                        Buy 5 Credits ($2.00)
-                                    </span>
-                                </button>
                             </div>
                         </div>
                         
@@ -1633,10 +1694,8 @@
                                         isDark ? 'text-slate-300' : 'text-slate-700'
                                     }`}>
                                         {usageLimit.remaining === 0 
-                                            ? 'No generations available' 
-                                            : usageLimit.isFree 
-                                                ? 'Free Generation Available' 
-                                                : `Generations Available: ${usageLimit.remaining}`
+                                            ? 'No credits available' 
+                                            : `Credits Available: ${usageLimit.remaining}`
                                         }
                                     </span>
                                     {usageLimit.remaining === 0 && (
@@ -1771,11 +1830,32 @@
                                 </div>
                                 
                                 <div>
-                                    <label className={`block text-sm font-semibold mb-2.5 tracking-wide ${
-                                        isDark ? 'text-slate-300' : 'text-slate-700'
-                                    }`}>
-                                        Current Resume Section *
-                                    </label>
+                                    <div className="flex justify-between items-center mb-2.5">
+                                        <label className={`block text-sm font-semibold tracking-wide ${
+                                            isDark ? 'text-slate-300' : 'text-slate-700'
+                                        }`}>
+                                            Current Resume Section *
+                                        </label>
+                                        <label className={`cursor-pointer px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                                            isDark 
+                                                ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                        }`}>
+                                            <input
+                                                type="file"
+                                                accept=".pdf,.doc,.docx,.txt"
+                                                onChange={handleResumeUpload}
+                                                className="hidden"
+                                                id="resume-upload"
+                                            />
+                                            📄 Upload Resume
+                                        </label>
+                                    </div>
+                                    {uploadedFileName && (
+                                        <div className={`mb-2 text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                            Uploaded: {uploadedFileName}
+                                        </div>
+                                    )}
                                     <div className="mb-2">
                                         <select
                                             value={resumeSectionType}
@@ -1797,7 +1877,7 @@
                                     <textarea
                                         value={resumeSection}
                                         onChange={(e) => setResumeSection(e.target.value)}
-                                        placeholder="Paste your current resume section here..."
+                                        placeholder="Paste your current resume section here or upload a file..."
                                         aria-label="Resume section input"
                                         aria-required="true"
                                         rows="6"
@@ -2270,11 +2350,6 @@
                                         )}
                                     </div>
                                     
-                                    {authMode === 'signup' && (
-                                        <div className="p-3 bg-violet-50 border border-violet-200 rounded-xl text-sm text-violet-700">
-                                            <span className="font-semibold">Bonus:</span> New users get 1 free generation to test the service!
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -2406,7 +2481,6 @@
                                     
                                     {!hasPaidOnce && user && (
                                         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">
-                                            <span className="font-semibold">New users:</span> Get 1 free generation to test the service!
                                         </div>
                                     )}
                                 </div>
@@ -2481,16 +2555,6 @@
                                                             <span className="text-violet-600">Premium</span>
                                                         ) : (
                                                             <span className="text-slate-600">Free</span>
-                                                        )}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-sm text-slate-600">Free Generation</span>
-                                                    <span className="text-sm font-semibold text-slate-900">
-                                                        {userStats.freeGenerationUsed ? (
-                                                            <span className="text-slate-500">Used</span>
-                                                        ) : (
-                                                            <span className="text-emerald-600">Available</span>
                                                         )}
                                                     </span>
                                                 </div>
