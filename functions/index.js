@@ -58,7 +58,7 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
     const userRef = admin.firestore().doc(`artifacts/${APP_ID}/users/${userId}`);
     const userDoc = await userRef.get();
     
-    if (userDoc.exists() && userDoc.data().stripeCustomerId) {
+    if (userDoc.exists && userDoc.data().stripeCustomerId) {
       customerId = userDoc.data().stripeCustomerId;
     } else {
       // Create new Stripe customer
@@ -93,7 +93,7 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
       cancel_url: `${data.cancelUrl || 'https://resumeforgeapp.com'}`,
       metadata: {
         firebaseUserId: userId,
-        creditsToAdd: '1', // Add 1 credit per generation purchase
+        creditsToAdd: '5', // Add 5 credits per purchase ($1.00 for 5 credits)
       },
       // Ensure 3D Secure is enabled (required for Apple Pay/Google Pay)
       payment_method_options: {
