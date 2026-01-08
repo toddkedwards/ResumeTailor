@@ -64,6 +64,18 @@
     <!-- Stripe.js -->
     <script src="https://js.stripe.com/v3/"></script>
     
+    <!-- PDF.js for PDF parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Configure PDF.js worker
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
+    
+    <!-- Mammoth.js for DOCX parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -426,7 +438,7 @@
                 return { 
                     canGenerate: true, 
                     remaining: credits, 
-                    message: `${credits} generation${credits !== 1 ? 's' : ''} available`, 
+                                    message: `${credits} credit${credits !== 1 ? 's' : ''} available`,
                     isFree: false 
                 };
             }
@@ -1415,33 +1427,66 @@
                 setLoading(true);
                 
                 try {
-                    const reader = new FileReader();
-                    reader.onload = async (e) => {
-                        const text = e.target.result;
-                        // For PDF files, we'd need a PDF parser library
-                        // For now, handle text files and show a message for PDFs
-                        if (file.type === 'application/pdf') {
-                            showToast('PDF parsing requires additional setup. Please paste your resume text manually or convert to DOC/TXT.', 'error');
+                    // Handle different file types
+                    if (file.type === 'text/plain') {
+                        // Plain text file
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const text = e.target.result;
+                            setResumeSection(text);
+                            setUploadedResume(text);
+                            showToast('Resume uploaded successfully!', 'success');
+                            setLoading(false);
+                        };
+                        reader.readAsText(file);
+                    } else if (file.type === 'application/pdf') {
+                        // PDF file - use pdf.js
+                        if (typeof pdfjsLib === 'undefined') {
+                            showToast('PDF library not loaded. Please refresh the page.', 'error');
                             setLoading(false);
                             return;
                         }
                         
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        let fullText = '';
+                        
+                        // Extract text from all pages
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => item.str).join(' ');
+                            fullText += pageText + '\n';
+                        }
+                        
+                        setResumeSection(fullText.trim());
+                        setUploadedResume(fullText.trim());
+                        showToast('PDF uploaded and parsed successfully!', 'success');
+                        setLoading(false);
+                    } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+                        // DOCX file - use mammoth.js
+                        if (typeof mammoth === 'undefined') {
+                            showToast('DOCX library not loaded. Please refresh the page.', 'error');
+                            setLoading(false);
+                            return;
+                        }
+                        
+                        const arrayBuffer = await file.arrayBuffer();
+                        const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                        const text = result.value;
+                        
                         setResumeSection(text);
                         setUploadedResume(text);
-                        showToast('Resume uploaded successfully!', 'success');
+                        showToast('DOCX uploaded and parsed successfully!', 'success');
                         setLoading(false);
-                    };
-                    
-                    if (file.type === 'text/plain') {
-                        reader.readAsText(file);
-                    } else {
-                        // For DOC/DOCX, we'd need a parser
-                        showToast('Please convert DOC/DOCX to TXT or paste the text manually', 'error');
+                    } else if (file.type === 'application/msword') {
+                        // Old DOC format - not easily parseable in browser
+                        showToast('Old DOC format (.doc) is not supported. Please convert to DOCX or PDF, or paste the text manually.', 'error');
                         setLoading(false);
                     }
                 } catch (error) {
                     console.error('Error reading file:', error);
-                    showToast('Error reading file. Please try again.', 'error');
+                    showToast(`Error reading file: ${error.message}. Please try again or paste the text manually.`, 'error');
                     setLoading(false);
                 }
             }
@@ -1707,7 +1752,7 @@
                                                     : 'text-violet-600 hover:text-violet-700'
                                             }`}
                                         >
-                                            Buy Generation →
+                                            Buy Credits →
                                         </button>
                                     )}
                                 </div>
@@ -2364,8 +2409,10 @@
                                     : 'bg-white'
                             }`}>
                                 <div className="flex justify-between items-center mb-6">
-                                    <h2 className="text-3xl font-bold text-slate-900">
-                                        Upgrade to Premium
+                                    <h2 className={`text-3xl font-bold ${
+                                        isDark ? 'text-white' : 'text-slate-900'
+                                    }`}>
+                                        Purchase Credits
                                     </h2>
                                     <button
                                         onClick={() => setShowPricingModal(false)}
@@ -2378,10 +2425,16 @@
                                 </div>
                                 
                                 <div className="space-y-6">
-                                    <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl p-6 border-2 border-violet-200">
+                                    <div className={`rounded-xl p-6 border-2 ${
+                                        isDark 
+                                            ? 'bg-gradient-to-r from-slate-700 to-slate-800 border-slate-600' 
+                                            : 'bg-gradient-to-r from-violet-50 to-purple-50 border-violet-200'
+                                    }`}>
                                         <div className="text-center mb-4">
-                                            <div className="text-4xl font-bold text-slate-900 mb-2">$0.50</div>
-                                            <div className="text-slate-600">per generation</div>
+                                            <div className={`text-4xl font-bold mb-2 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>$1.00</div>
+                                            <div className={isDark ? 'text-slate-300' : 'text-slate-600'}>for 5 credits</div>
                                         </div>
                                         
                                         <ul className="space-y-3 mb-6">
@@ -2389,7 +2442,7 @@
                                                 <svg className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                 </svg>
-                                                <span className="text-slate-700">AI-powered resume tailoring with keyword matching</span>
+                                                <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>AI-powered resume tailoring with keyword matching</span>
                                             </li>
                                             <li className="flex items-start gap-3">
                                                 <svg className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2453,7 +2506,7 @@
                                             <div className="text-center">
                                                 <p className="text-slate-600 mb-4">You have premium features unlocked!</p>
                                                 <p className="text-sm text-slate-500">
-                                                    Purchase more generations to continue using the service.
+                                                    Purchase more credits to continue using the service.
                                                 </p>
                                             </div>
                                         ) : (
@@ -2473,7 +2526,7 @@
                                                         <span>Processing...</span>
                                                     </>
                                                 ) : (
-                                                    'Buy Generation - $0.50'
+                                                    'Buy 5 Credits - $1.00'
                                                 )}
                                             </button>
                                         )}
