@@ -658,6 +658,171 @@
                 projects: []
             });
             const [showDashboard, setShowDashboard] = useState(false);
+            const [showTemplates, setShowTemplates] = useState(false);
+            const [selectedTemplate, setSelectedTemplate] = useState(null);
+            const [showCoverLetter, setShowCoverLetter] = useState(false);
+            const [coverLetter, setCoverLetter] = useState('');
+            const [coverLetterHighlights, setCoverLetterHighlights] = useState([]);
+            const [coverLetterLoading, setCoverLetterLoading] = useState(false);
+            const [applicantName, setApplicantName] = useState('');
+            const [companyName, setCompanyName] = useState('');
+            
+            // Resume Templates
+            const resumeTemplates = {
+                'Technology/Software': {
+                    name: 'Technology Professional',
+                    contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
+                    summary: 'Experienced software professional with expertise in modern development practices and technologies. Proven track record of delivering high-quality solutions and collaborating effectively in agile environments.',
+                    experience: [{
+                        id: Date.now(),
+                        title: 'Software Engineer',
+                        company: 'Tech Company',
+                        location: 'City, State',
+                        startDate: '01/2020',
+                        endDate: '',
+                        current: true,
+                        description: '• Developed and maintained scalable web applications using modern frameworks\n• Collaborated with cross-functional teams to deliver features on time\n• Implemented CI/CD pipelines and automated testing\n• Optimized application performance and reduced load times by 40%'
+                    }],
+                    education: [{
+                        id: Date.now() + 1,
+                        degree: 'Bachelor of Science in Computer Science',
+                        school: 'University Name',
+                        location: 'City, State',
+                        graduationDate: '2019',
+                        gpa: '3.8',
+                        honors: 'Magna Cum Laude'
+                    }],
+                    skills: [
+                        { id: Date.now() + 2, name: 'JavaScript', category: 'Technical' },
+                        { id: Date.now() + 3, name: 'React', category: 'Technical' },
+                        { id: Date.now() + 4, name: 'Node.js', category: 'Technical' },
+                        { id: Date.now() + 5, name: 'Python', category: 'Technical' },
+                        { id: Date.now() + 6, name: 'AWS', category: 'Technical' }
+                    ],
+                    certifications: [],
+                    projects: []
+                },
+                'Marketing/Advertising': {
+                    name: 'Marketing Professional',
+                    contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
+                    summary: 'Creative marketing professional with expertise in digital marketing, brand management, and campaign optimization. Proven ability to increase brand awareness and drive revenue growth through data-driven strategies.',
+                    experience: [{
+                        id: Date.now(),
+                        title: 'Marketing Manager',
+                        company: 'Marketing Agency',
+                        location: 'City, State',
+                        startDate: '01/2020',
+                        endDate: '',
+                        current: true,
+                        description: '• Developed and executed comprehensive marketing campaigns across multiple channels\n• Increased brand awareness by 60% through strategic social media initiatives\n• Managed marketing budget of $500K+ and achieved 25% ROI improvement\n• Led cross-functional teams to launch successful product campaigns'
+                    }],
+                    education: [{
+                        id: Date.now() + 1,
+                        degree: 'Bachelor of Arts in Marketing',
+                        school: 'University Name',
+                        location: 'City, State',
+                        graduationDate: '2018',
+                        gpa: '',
+                        honors: ''
+                    }],
+                    skills: [
+                        { id: Date.now() + 2, name: 'Digital Marketing', category: 'Marketing' },
+                        { id: Date.now() + 3, name: 'SEO/SEM', category: 'Marketing' },
+                        { id: Date.now() + 4, name: 'Google Analytics', category: 'Technical' },
+                        { id: Date.now() + 5, name: 'Content Strategy', category: 'Marketing' },
+                        { id: Date.now() + 6, name: 'Social Media Marketing', category: 'Marketing' }
+                    ],
+                    certifications: [],
+                    projects: []
+                },
+                'Healthcare': {
+                    name: 'Healthcare Professional',
+                    contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
+                    summary: 'Dedicated healthcare professional with extensive experience in patient care and medical administration. Committed to providing high-quality healthcare services and improving patient outcomes.',
+                    experience: [{
+                        id: Date.now(),
+                        title: 'Registered Nurse',
+                        company: 'Medical Center',
+                        location: 'City, State',
+                        startDate: '01/2019',
+                        endDate: '',
+                        current: true,
+                        description: '• Provided comprehensive patient care in fast-paced hospital environment\n• Collaborated with multidisciplinary teams to develop and implement care plans\n• Maintained accurate patient records and documentation\n• Mentored new nursing staff and participated in continuing education programs'
+                    }],
+                    education: [{
+                        id: Date.now() + 1,
+                        degree: 'Bachelor of Science in Nursing',
+                        school: 'Nursing School',
+                        location: 'City, State',
+                        graduationDate: '2018',
+                        gpa: '3.7',
+                        honors: ''
+                    }],
+                    skills: [
+                        { id: Date.now() + 2, name: 'Patient Care', category: 'Clinical' },
+                        { id: Date.now() + 3, name: 'Electronic Health Records', category: 'Technical' },
+                        { id: Date.now() + 4, name: 'Medication Administration', category: 'Clinical' },
+                        { id: Date.now() + 5, name: 'Critical Thinking', category: 'Soft Skills' },
+                        { id: Date.now() + 6, name: 'Emergency Response', category: 'Clinical' }
+                    ],
+                    certifications: [{
+                        id: Date.now() + 7,
+                        name: 'Registered Nurse (RN)',
+                        issuer: 'State Board of Nursing',
+                        date: '2018',
+                        expiryDate: '',
+                        credentialId: ''
+                    }],
+                    projects: []
+                },
+                'Finance/Banking': {
+                    name: 'Finance Professional',
+                    contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
+                    summary: 'Analytical finance professional with expertise in financial analysis, risk management, and investment strategies. Proven track record of optimizing financial performance and supporting strategic business decisions.',
+                    experience: [{
+                        id: Date.now(),
+                        title: 'Financial Analyst',
+                        company: 'Financial Services',
+                        location: 'City, State',
+                        startDate: '01/2020',
+                        endDate: '',
+                        current: true,
+                        description: '• Conducted financial analysis and prepared reports for senior management\n• Developed financial models to support investment decisions\n• Analyzed market trends and provided recommendations\n• Reduced operational costs by 15% through process optimization'
+                    }],
+                    education: [{
+                        id: Date.now() + 1,
+                        degree: 'Bachelor of Science in Finance',
+                        school: 'Business School',
+                        location: 'City, State',
+                        graduationDate: '2019',
+                        gpa: '3.6',
+                        honors: ''
+                    }],
+                    skills: [
+                        { id: Date.now() + 2, name: 'Financial Analysis', category: 'Finance' },
+                        { id: Date.now() + 3, name: 'Excel', category: 'Technical' },
+                        { id: Date.now() + 4, name: 'Financial Modeling', category: 'Finance' },
+                        { id: Date.now() + 5, name: 'Risk Management', category: 'Finance' },
+                        { id: Date.now() + 6, name: 'SQL', category: 'Technical' }
+                    ],
+                    certifications: [],
+                    projects: []
+                }
+            };
+            
+            function loadTemplate(templateKey) {
+                const template = resumeTemplates[templateKey];
+                if (template) {
+                    setFullResume({
+                        ...template,
+                        contact: { ...template.contact } // Create new object
+                    });
+                    setShowTemplates(false);
+                    setShowResumeBuilder(true);
+                    showToast('Template loaded! Customize it to match your experience.', 'success');
+                    trackEvent('resume_template_loaded', { template: templateKey });
+                }
+            }
             
             // Ref to store resumes unsubscribe function for cleanup
             const resumesUnsubscribeRef = useRef(null);
@@ -943,6 +1108,85 @@
             useEffect(() => {
                 loadRecentJobDescriptions();
             }, []);
+            
+            // Generate Cover Letter
+            async function generateCoverLetter() {
+                if (!user || !currentUserId) {
+                    setError('Please sign in to generate cover letters');
+                    setShowAuthModal(true);
+                    trackEvent('cover_letter_unauthorized');
+                    return;
+                }
+                
+                if (!jobDescription.trim()) {
+                    setError('Please enter a job description');
+                    return;
+                }
+                
+                const resumeText = generateFullResumeText() || resumeSection;
+                if (!resumeText.trim()) {
+                    setError('Please add your resume content or use the resume builder');
+                    return;
+                }
+                
+                // Check usage limits
+                const limit = await checkUsageLimit();
+                setUsageLimit(limit);
+                
+                if (!limit.canGenerate) {
+                    setError(limit.message);
+                    setShowPricingModal(true);
+                    trackEvent('cover_letter_insufficient_credits');
+                    return;
+                }
+                
+                setCoverLetterLoading(true);
+                setError('');
+                setCoverLetter('');
+                setCoverLetterHighlights([]);
+                
+                try {
+                    if (!functions) {
+                        throw new Error('Firebase Functions not initialized. Please refresh the page.');
+                    }
+                    
+                    const { httpsCallable } = window.firebaseModules;
+                    const generateCoverLetterFn = httpsCallable(functions, 'generateCoverLetter');
+                    
+                    const result = await generateCoverLetterFn({
+                        jobDescription: jobDescription.trim(),
+                        resumeText: resumeText.trim(),
+                        applicantName: applicantName.trim() || fullResume.contact.name || '',
+                        companyName: companyName.trim() || ''
+                    });
+                    
+                    if (!result.data || !result.data.success) {
+                        throw new Error(result.data?.error || 'Failed to generate cover letter');
+                    }
+                    
+                    setCoverLetter(result.data.coverLetter || '');
+                    setCoverLetterHighlights(result.data.keyHighlights || []);
+                    setShowCoverLetter(true);
+                    
+                    // Increment usage
+                    await incrementUsage();
+                    const newLimit = await checkUsageLimit();
+                    setUsageLimit(newLimit);
+                    
+                    trackEvent('cover_letter_generated', { wordCount: result.data.wordCount || 0 });
+                    showToast('Cover letter generated successfully!', 'success');
+                } catch (err) {
+                    let errorMessage = `Error generating cover letter: ${err.message}`;
+                    if (err.message && err.message.includes('insufficient credits')) {
+                        errorMessage = 'Insufficient credits. Please purchase more credits to continue.';
+                    }
+                    setError(errorMessage);
+                    trackEvent('cover_letter_error', { error: err.message });
+                    console.error('Cover letter generation error:', err);
+                } finally {
+                    setCoverLetterLoading(false);
+                }
+            }
             
             function loadSavedResumes() {
                 if (!db || !currentUserId || APP_ID === '__app_id') return null;
@@ -2847,6 +3091,79 @@
                             </div>
                         )}
                         
+                        {/* Resume Templates Modal */}
+                        {showTemplates && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                                <div className={`rounded-2xl shadow-xl max-w-4xl w-full p-8 animate-fade-in max-h-[90vh] overflow-y-auto ${
+                                    isDark 
+                                        ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700' 
+                                        : 'bg-white border border-slate-200'
+                                }`}>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className={`text-3xl font-bold ${
+                                            isDark ? 'text-white' : 'text-slate-900'
+                                        }`}>
+                                            Resume Templates
+                                        </h2>
+                                        <button
+                                            onClick={() => setShowTemplates(false)}
+                                            className={isDark ? 'text-slate-300 hover:text-white' : 'text-slate-400 hover:text-slate-600'}
+                                        >
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    
+                                    <p className={`mb-6 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                        Choose a template to get started. You can customize it to match your experience.
+                                    </p>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {Object.entries(resumeTemplates).map(([industry, template]) => (
+                                            <button
+                                                key={industry}
+                                                onClick={() => loadTemplate(industry)}
+                                                className={`p-6 rounded-xl border text-left transition-all hover:scale-105 ${
+                                                    isDark 
+                                                        ? 'bg-slate-700/50 border-slate-600 hover:border-violet-500 hover:bg-slate-700' 
+                                                        : 'bg-slate-50 border-slate-200 hover:border-violet-300 hover:bg-slate-100'
+                                                }`}
+                                            >
+                                                <h3 className={`text-xl font-bold mb-2 ${
+                                                    isDark ? 'text-white' : 'text-slate-900'
+                                                }`}>
+                                                    {template.name}
+                                                </h3>
+                                                <p className={`text-sm mb-4 ${
+                                                    isDark ? 'text-slate-400' : 'text-slate-600'
+                                                }`}>
+                                                    {industry}
+                                                </p>
+                                                <div className={`text-sm ${
+                                                    isDark ? 'text-violet-400' : 'text-violet-600'
+                                                }`}>
+                                                    Use Template →
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    
+                                    <div className={`mt-6 p-4 rounded-xl ${
+                                        isDark 
+                                            ? 'bg-violet-900/30 border border-violet-700' 
+                                            : 'bg-violet-50 border border-violet-200'
+                                    }`}>
+                                        <p className={`text-sm ${
+                                            isDark ? 'text-violet-300' : 'text-violet-700'
+                                        }`}>
+                                            💡 <strong>Tip:</strong> Templates are starting points. Customize them with your actual experience, skills, and achievements for best results.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
                         {/* Full Resume Builder */}
                         {showResumeBuilder && (
                             <div className={`mb-6 rounded-2xl border shadow-sm p-8 animate-fade-in max-h-[90vh] overflow-y-auto ${
@@ -3674,33 +3991,83 @@
                                 </button>
                             </div>
                             
-                            <button
-                                onClick={() => {
-                                    trackEvent('resume_tailor_clicked', {
-                                        sectionType: resumeSectionType
-                                    });
-                                    generateTailoredResume();
-                                }}
-                                disabled={loading || !jobDescription.trim() || !resumeSection.trim() || !user}
-                                aria-label="Tailor resume to job description"
-                                aria-busy={loading}
-                                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white py-3.5 px-6 rounded-xl font-semibold hover:from-violet-700 hover:to-purple-700 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
-                            >
-                                {loading ? (
-                                    <>
-                                        <svg className="animate-spin-slow h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        <span>Tailoring Resume...</span>
-                                        {estimatedTime && (
-                                            <span className="text-xs opacity-75 ml-2">(~{estimatedTime}s)</span>
-                                        )}
-                                    </>
-                                ) : (
-                                    'Tailor Resume'
-                                )}
-                            </button>
+                            {/* Optional Fields for Cover Letter */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                                <input
+                                    type="text"
+                                    placeholder="Your Name (optional, for cover letter)"
+                                    value={applicantName}
+                                    onChange={(e) => setApplicantName(e.target.value)}
+                                    className={`px-4 py-2 border rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none text-sm ${
+                                        isDark 
+                                            ? 'border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-500' 
+                                            : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400'
+                                    }`}
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Company Name (optional, for cover letter)"
+                                    value={companyName}
+                                    onChange={(e) => setCompanyName(e.target.value)}
+                                    className={`px-4 py-2 border rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none text-sm ${
+                                        isDark 
+                                            ? 'border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-500' 
+                                            : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400'
+                                    }`}
+                                />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => {
+                                        trackEvent('resume_tailor_clicked', {
+                                            sectionType: resumeSectionType
+                                        });
+                                        generateTailoredResume();
+                                    }}
+                                    disabled={loading || coverLetterLoading || !jobDescription.trim() || !resumeSection.trim() || !user}
+                                    aria-label="Tailor resume to job description"
+                                    aria-busy={loading}
+                                    className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white py-3.5 px-6 rounded-xl font-semibold hover:from-violet-700 hover:to-purple-700 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <svg className="animate-spin-slow h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Tailoring Resume...</span>
+                                            {estimatedTime && (
+                                                <span className="text-xs opacity-75 ml-2">(~{estimatedTime}s)</span>
+                                            )}
+                                        </>
+                                    ) : (
+                                        '📝 Tailor Resume'
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        trackEvent('cover_letter_clicked');
+                                        generateCoverLetter();
+                                    }}
+                                    disabled={loading || coverLetterLoading || !jobDescription.trim() || (!resumeSection.trim() && !generateFullResumeText()) || !user}
+                                    aria-label="Generate cover letter"
+                                    aria-busy={coverLetterLoading}
+                                    className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-3.5 px-6 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-700 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                >
+                                    {coverLetterLoading ? (
+                                        <>
+                                            <svg className="animate-spin-slow h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Generating...</span>
+                                        </>
+                                    ) : (
+                                        '✉️ Generate Cover Letter'
+                                    )}
+                                </button>
+                            </div>
                             
                             {error && (
                                 <div className="mt-5 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg animate-fade-in">

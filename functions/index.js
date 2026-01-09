@@ -434,3 +434,135 @@ IMPORTANT:
     );
   }
 });
+
+/**
+ * Generate cover letter based on job description and resume
+ * Returns a tailored cover letter
+ */
+exports.generateCoverLetter = functions.https.onCall(async (data, context) => {
+  // Verify user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated to generate cover letters'
+    );
+  }
+
+  const { jobDescription, resumeText, applicantName, companyName } = data;
+  
+  if (!jobDescription || typeof jobDescription !== 'string' || !jobDescription.trim()) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Job description is required'
+    );
+  }
+  
+  if (!resumeText || typeof resumeText !== 'string' || !resumeText.trim()) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Resume text is required'
+    );
+  }
+
+  // Get Gemini API key from config
+  const geminiApiKey = functions.config().gemini?.api_key;
+  
+  if (!geminiApiKey) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Gemini API key not configured'
+    );
+  }
+
+  const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
+
+  try {
+    const prompt = `You are an expert cover letter writer. Create a professional, compelling cover letter.
+
+Job Description:
+${jobDescription}
+
+Applicant's Resume:
+${resumeText}
+
+${applicantName ? `Applicant Name: ${applicantName}\n` : ''}${companyName ? `Company Name: ${companyName}\n` : ''}
+
+Task:
+1. Write a professional cover letter that highlights the applicant's relevant experience and skills
+2. Match the applicant's qualifications to the job requirements
+3. Show enthusiasm for the position and company
+4. Keep it concise (3-4 paragraphs, approximately 250-350 words)
+5. Use a professional but engaging tone
+6. Include specific examples from the resume that relate to the job description
+
+Return your response as a JSON object with this exact structure:
+{
+  "coverLetter": "The complete cover letter text",
+  "keyHighlights": ["Highlight 1", "Highlight 2", "Highlight 3"],
+  "wordCount": 300
+}
+
+IMPORTANT:
+- Make the cover letter specific to this job and company
+- Reference specific requirements from the job description
+- Use the applicant's actual experience and achievements
+- Ensure the cover letter is professional and ATS-friendly`;
+
+    const response = await fetch(`${geminiApiUrl}?key=${geminiApiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+      throw new Error('Invalid response from Gemini API');
+    }
+
+    const responseText = result.candidates[0].content.parts[0].text;
+    
+    // Try to parse JSON response
+    let parsedResult;
+    try {
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/```\s*([\s\S]*?)\s*```/);
+      const jsonText = jsonMatch ? jsonMatch[1] : responseText;
+      parsedResult = JSON.parse(jsonText);
+    } catch (parseError) {
+      // Fallback: treat entire response as cover letter
+      parsedResult = {
+        coverLetter: responseText,
+        keyHighlights: [],
+        wordCount: responseText.split(/\s+/).length
+      };
+    }
+
+    return {
+      success: true,
+      coverLetter: parsedResult.coverLetter || responseText,
+      keyHighlights: parsedResult.keyHighlights || [],
+      wordCount: parsedResult.wordCount || (parsedResult.coverLetter || responseText).split(/\s+/).length
+    };
+  } catch (error) {
+    console.error('Cover letter generation error:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to generate cover letter',
+      error.message
+    );
+  }
+});
