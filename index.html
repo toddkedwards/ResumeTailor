@@ -5547,6 +5547,155 @@
                                             </div>
                                         </div>
                                         
+                                        {/* Analytics Trends */}
+                                        {analyticsHistory.length > 0 && (
+                                            <>
+                                                {/* ATS Score Trend */}
+                                                <div className={`rounded-xl p-6 border ${
+                                                    isDark 
+                                                        ? 'bg-slate-700/50 border-slate-600' 
+                                                        : 'bg-slate-50 border-slate-200'
+                                                }`}>
+                                                    <h3 className={`text-xl font-bold mb-4 ${
+                                                        isDark ? 'text-white' : 'text-slate-900'
+                                                    }`}>📈 ATS Score Trend</h3>
+                                                    <div className="space-y-2">
+                                                        {analyticsHistory.filter(h => h.atsScore !== null).length > 0 ? (
+                                                            <div className="flex items-end gap-1 h-32">
+                                                                {analyticsHistory.filter(h => h.atsScore !== null).slice(-10).map((item, idx) => {
+                                                                    const score = item.atsScore;
+                                                                    const height = (score / 100) * 100;
+                                                                    return (
+                                                                        <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+                                                                            <div 
+                                                                                className={`w-full rounded-t transition-all ${
+                                                                                    score >= 80 ? 'bg-emerald-600' :
+                                                                                    score >= 60 ? 'bg-yellow-600' :
+                                                                                    'bg-red-600'
+                                                                                }`}
+                                                                                style={{ height: `${height}%`, minHeight: '4px' }}
+                                                                                title={`Score: ${score}`}
+                                                                            ></div>
+                                                                            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                                                {idx + 1}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                                No ATS score data yet. Generate tailored resumes to see trends.
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    {analyticsHistory.filter(h => h.atsScore !== null).length > 0 && (
+                                                        <div className="mt-4 flex items-center justify-between text-sm">
+                                                            <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
+                                                                Average: {Math.round(analyticsHistory.filter(h => h.atsScore !== null).reduce((sum, h) => sum + h.atsScore, 0) / analyticsHistory.filter(h => h.atsScore !== null).length)}
+                                                            </span>
+                                                            <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
+                                                                Best: {Math.max(...analyticsHistory.filter(h => h.atsScore !== null).map(h => h.atsScore))}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* Keyword Usage Over Time */}
+                                                {analyticsHistory.some(h => h.keywordMatches) && (
+                                                    <div className={`rounded-xl p-6 border ${
+                                                        isDark 
+                                                            ? 'bg-slate-700/50 border-slate-600' 
+                                                            : 'bg-slate-50 border-slate-200'
+                                                    }`}>
+                                                        <h3 className={`text-xl font-bold mb-4 ${
+                                                            isDark ? 'text-white' : 'text-slate-900'
+                                                        }`}>🔑 Keyword Match Trend</h3>
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-end gap-1 h-32">
+                                                                {analyticsHistory.filter(h => h.keywordMatches?.matchPercentage !== undefined).slice(-10).map((item, idx) => {
+                                                                    const percentage = item.keywordMatches?.matchPercentage || 0;
+                                                                    const height = percentage;
+                                                                    return (
+                                                                        <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+                                                                            <div 
+                                                                                className={`w-full rounded-t transition-all ${
+                                                                                    percentage >= 70 ? 'bg-violet-600' :
+                                                                                    percentage >= 50 ? 'bg-blue-600' :
+                                                                                    'bg-slate-500'
+                                                                                }`}
+                                                                                style={{ height: `${height}%`, minHeight: '4px' }}
+                                                                                title={`Match: ${percentage}%`}
+                                                                            ></div>
+                                                                            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                                                {idx + 1}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            {analyticsHistory.filter(h => h.keywordMatches?.matchPercentage !== undefined).length > 0 && (
+                                                                <div className="mt-4 flex items-center justify-between text-sm">
+                                                                    <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
+                                                                        Avg Match: {Math.round(analyticsHistory.filter(h => h.keywordMatches?.matchPercentage !== undefined).reduce((sum, h) => sum + (h.keywordMatches?.matchPercentage || 0), 0) / analyticsHistory.filter(h => h.keywordMatches?.matchPercentage !== undefined).length)}%
+                                                                    </span>
+                                                                    <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
+                                                                        Best: {Math.max(...analyticsHistory.filter(h => h.keywordMatches?.matchPercentage !== undefined).map(h => h.keywordMatches?.matchPercentage || 0))}%
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Generation Activity Timeline */}
+                                                {analyticsHistory.length > 0 && (
+                                                    <div className={`rounded-xl p-6 border ${
+                                                        isDark 
+                                                            ? 'bg-slate-700/50 border-slate-600' 
+                                                            : 'bg-slate-50 border-slate-200'
+                                                    }`}>
+                                                        <h3 className={`text-xl font-bold mb-4 ${
+                                                            isDark ? 'text-white' : 'text-slate-900'
+                                                        }`}>📅 Recent Activity</h3>
+                                                        <div className="space-y-3">
+                                                            {analyticsHistory.slice(-5).reverse().map((item, idx) => (
+                                                                <div key={item.id || idx} className={`p-3 rounded-lg ${
+                                                                    isDark ? 'bg-slate-800' : 'bg-white'
+                                                                }`}>
+                                                                    <div className="flex items-center justify-between">
+                                                                        <div>
+                                                                            <div className={`text-sm font-semibold ${
+                                                                                isDark ? 'text-white' : 'text-slate-900'
+                                                                            }`}>
+                                                                                {new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString()}
+                                                                            </div>
+                                                                            {item.atsScore !== null && (
+                                                                                <div className={`text-xs mt-1 ${
+                                                                                    isDark ? 'text-slate-400' : 'text-slate-600'
+                                                                                }`}>
+                                                                                    ATS Score: <span className={`font-semibold ${
+                                                                                        item.atsScore >= 80 ? 'text-emerald-600' :
+                                                                                        item.atsScore >= 60 ? 'text-yellow-600' :
+                                                                                        'text-red-600'
+                                                                                    }`}>{item.atsScore}</span>
+                                                                                    {item.keywordMatches?.matchPercentage !== undefined && (
+                                                                                        <span className="ml-3">
+                                                                                            Keyword Match: <span className="font-semibold text-violet-600">{item.keywordMatches.matchPercentage}%</span>
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                        
                                         {/* Insights & Recommendations */}
                                         <div className={`rounded-xl p-6 border ${
                                             isDark 
@@ -5564,6 +5713,34 @@
                                                         <span>🎯</span>
                                                         <span>Start tailoring your resume to see your analytics and insights here!</span>
                                                     </li>
+                                                )}
+                                                {analyticsHistory.length > 0 && analyticsHistory.some(h => h.atsScore !== null) && (
+                                                    (() => {
+                                                        const scores = analyticsHistory.filter(h => h.atsScore !== null).map(h => h.atsScore);
+                                                        const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+                                                        const isImproving = scores.length >= 2 && scores[scores.length - 1] > scores[0];
+                                                        
+                                                        if (avgScore < 60) {
+                                                            return (
+                                                                <li key="low-score" className={`flex items-start gap-2 ${
+                                                                    isDark ? 'text-slate-300' : 'text-slate-700'
+                                                                }`}>
+                                                                    <span>📊</span>
+                                                                    <span>Your average ATS score is {Math.round(avgScore)}. Focus on adding more keywords and quantifiable achievements to improve.</span>
+                                                                </li>
+                                                            );
+                                                        } else if (isImproving) {
+                                                            return (
+                                                                <li key="improving" className={`flex items-start gap-2 ${
+                                                                    isDark ? 'text-slate-300' : 'text-slate-700'
+                                                                }`}>
+                                                                    <span>📈</span>
+                                                                    <span>Great progress! Your ATS scores are improving. Keep tailoring resumes for different job descriptions.</span>
+                                                                </li>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()
                                                 )}
                                                 {userStats.savedResumes === 0 && userStats.totalGenerations > 0 && (
                                                     <li className={`flex items-start gap-2 ${
