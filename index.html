@@ -499,6 +499,9 @@
                         credits: updateData.credits ?? 0,
                         hasPaidOnce: false,
                         totalGenerations: 1,
+                        creditsUsed: 1,
+                        firstGenerationDate: serverTimestamp(),
+                        createdAt: serverTimestamp()
                     });
                     console.log('incrementUsage: Created new document');
                 }
