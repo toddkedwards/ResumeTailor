@@ -1525,84 +1525,151 @@
                         </div>
                     )}
                     
-                    {/* Landing Page */}
-                    {!user && showLanding && (
-                        <div className="max-w-6xl mx-auto mb-12">
-                            <div className={`rounded-3xl p-12 text-center ${
-                                isDark 
-                                    ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700' 
-                                    : 'bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-200'
-                            }`}>
-                                <h2 className={`text-5xl font-bold mb-4 ${
-                                    isDark ? 'text-white' : 'text-slate-900'
-                                }`}>
-                                    AI-Powered Resume Tailoring
-                                </h2>
-                                <p className={`text-xl mb-8 ${
-                                    isDark ? 'text-slate-300' : 'text-slate-600'
-                                }`}>
-                                    Optimize your resume for ATS keyword alignment. Get tailored resumes that match job descriptions perfectly.
-                                </p>
-                                <div className="flex flex-wrap justify-center gap-4 mb-8">
-                                    <div className={`px-6 py-4 rounded-xl ${
-                                        isDark ? 'bg-slate-700' : 'bg-white'
+                    {/* Landing Page - Full Screen */}
+                    {!user && showLanding ? (
+                        <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
+                            <div className="max-w-5xl w-full">
+                                {/* Hero Section */}
+                                <div className="text-center mb-16">
+                                    <h1 className={`text-6xl md:text-7xl font-bold mb-6 ${
+                                        isDark ? 'text-white' : 'text-slate-900'
                                     }`}>
-                                        <div className={`text-2xl font-bold mb-1 ${
-                                            isDark ? 'text-white' : 'text-slate-900'
-                                        }`}>5 Credits</div>
-                                        <div className={`text-sm ${
-                                            isDark ? 'text-slate-400' : 'text-slate-600'
-                                        }`}>Only $1.00</div>
-                                    </div>
-                                    <div className={`px-6 py-4 rounded-xl ${
-                                        isDark ? 'bg-slate-700' : 'bg-white'
+                                        ResumeForge
+                                    </h1>
+                                    <p className={`text-2xl md:text-3xl mb-4 ${
+                                        isDark ? 'text-slate-300' : 'text-slate-600'
                                     }`}>
-                                        <div className={`text-2xl font-bold mb-1 ${
-                                            isDark ? 'text-white' : 'text-slate-900'
-                                        }`}>AI-Powered</div>
-                                        <div className={`text-sm ${
-                                            isDark ? 'text-slate-400' : 'text-slate-600'
-                                        }`}>Keyword Matching</div>
-                                    </div>
-                                    <div className={`px-6 py-4 rounded-xl ${
-                                        isDark ? 'bg-slate-700' : 'bg-white'
+                                        AI-Powered Resume Tailoring
+                                    </p>
+                                    <p className={`text-lg md:text-xl max-w-2xl mx-auto mb-8 ${
+                                        isDark ? 'text-slate-400' : 'text-slate-500'
                                     }`}>
-                                        <div className={`text-2xl font-bold mb-1 ${
-                                            isDark ? 'text-white' : 'text-slate-900'
-                                        }`}>Instant</div>
-                                        <div className={`text-sm ${
-                                            isDark ? 'text-slate-400' : 'text-slate-600'
-                                        }`}>Results</div>
+                                        Optimize your resume for ATS keyword alignment. Get tailored resumes that match job descriptions perfectly with AI-powered keyword matching and improvement tips.
+                                    </p>
+                                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                                        <button
+                                            onClick={() => {
+                                                setShowAuthModal(true);
+                                                setAuthMode('signup');
+                                                trackEvent('landing_signup_clicked');
+                                            }}
+                                            className="px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                                        >
+                                            Get Started Free
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowAuthModal(true);
+                                                setAuthMode('signin');
+                                                trackEvent('landing_signin_clicked');
+                                            }}
+                                            className={`px-8 py-4 text-lg font-semibold rounded-xl transition-all duration-300 ${
+                                                isDark 
+                                                    ? 'bg-slate-700 text-white hover:bg-slate-600 border border-slate-600' 
+                                                    : 'bg-white text-violet-600 hover:bg-violet-50 border-2 border-violet-600'
+                                            }`}
+                                        >
+                                            Sign In
+                                        </button>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        setShowAuthModal(true);
-                                        trackEvent('landing_signup_clicked');
-                                    }}
-                                    className="px-8 py-4 text-lg font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-colors shadow-lg hover:shadow-xl"
-                                >
-                                    Get Started - Sign Up Now
-                                </button>
-                                <p className={`mt-4 text-sm ${
-                                    isDark ? 'text-slate-400' : 'text-slate-500'
+
+                                {/* Features Grid */}
+                                <div className="grid md:grid-cols-3 gap-6 mb-16">
+                                    <div className={`p-6 rounded-2xl ${
+                                        isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200 shadow-sm'
+                                    }`}>
+                                        <div className="text-4xl mb-4">🎯</div>
+                                        <h3 className={`text-xl font-bold mb-2 ${
+                                            isDark ? 'text-white' : 'text-slate-900'
+                                        }`}>ATS Optimization</h3>
+                                        <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                                            Match keywords from job descriptions to improve your resume's ATS compatibility
+                                        </p>
+                                    </div>
+                                    <div className={`p-6 rounded-2xl ${
+                                        isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200 shadow-sm'
+                                    }`}>
+                                        <div className="text-4xl mb-4">🤖</div>
+                                        <h3 className={`text-xl font-bold mb-2 ${
+                                            isDark ? 'text-white' : 'text-slate-900'
+                                        }`}>AI-Powered</h3>
+                                        <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                                            Advanced AI analyzes your resume and job description to provide tailored improvements
+                                        </p>
+                                    </div>
+                                    <div className={`p-6 rounded-2xl ${
+                                        isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200 shadow-sm'
+                                    }`}>
+                                        <div className="text-4xl mb-4">⚡</div>
+                                        <h3 className={`text-xl font-bold mb-2 ${
+                                            isDark ? 'text-white' : 'text-slate-900'
+                                        }`}>Instant Results</h3>
+                                        <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                                            Get tailored resumes, keyword analysis, and improvement tips in seconds
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Pricing Section */}
+                                <div className={`rounded-3xl p-8 md:p-12 text-center ${
+                                    isDark 
+                                        ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700' 
+                                        : 'bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-200'
                                 }`}>
-                                    Already have an account?{' '}
+                                    <h2 className={`text-4xl font-bold mb-4 ${
+                                        isDark ? 'text-white' : 'text-slate-900'
+                                    }`}>
+                                        Simple, Affordable Pricing
+                                    </h2>
+                                    <div className={`text-5xl font-bold mb-2 ${
+                                        isDark ? 'text-white' : 'text-slate-900'
+                                    }`}>
+                                        $1.00
+                                    </div>
+                                    <div className={`text-xl mb-8 ${
+                                        isDark ? 'text-slate-300' : 'text-slate-600'
+                                    }`}>
+                                        for 5 credits
+                                    </div>
+                                    <div className="grid md:grid-cols-2 gap-4 mb-8 max-w-2xl mx-auto">
+                                        <div className={`p-4 rounded-xl ${
+                                            isDark ? 'bg-slate-700' : 'bg-white'
+                                        }`}>
+                                            <div className={`text-2xl font-bold mb-1 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>5 Credits</div>
+                                            <div className={`text-sm ${
+                                                isDark ? 'text-slate-400' : 'text-slate-600'
+                                            }`}>Only $1.00</div>
+                                        </div>
+                                        <div className={`p-4 rounded-xl ${
+                                            isDark ? 'bg-slate-700' : 'bg-white'
+                                        }`}>
+                                            <div className={`text-2xl font-bold mb-1 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>PDF & DOCX</div>
+                                            <div className={`text-sm ${
+                                                isDark ? 'text-slate-400' : 'text-slate-600'
+                                            }`}>File Upload Support</div>
+                                        </div>
+                                    </div>
                                     <button
                                         onClick={() => {
                                             setShowAuthModal(true);
-                                            setAuthMode('signin');
+                                            setAuthMode('signup');
+                                            trackEvent('landing_pricing_signup_clicked');
                                         }}
-                                        className="text-violet-600 hover:text-violet-700 font-semibold"
+                                        className="px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
                                     >
-                                        Sign In
+                                        Get Started Now
                                     </button>
-                                </p>
+                                </div>
                             </div>
                         </div>
-                    )}
-                    
-                    <div id="main-content" className="max-w-6xl mx-auto animate-fade-in">
+                    ) : (
+                        /* Main App Content - Only show when logged in */
+                        <div id="main-content" className="max-w-6xl mx-auto animate-fade-in">
                         {/* Header with Account Info */}
                         <div className="flex justify-between items-center mb-6">
                             <div>
@@ -2655,6 +2722,8 @@
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    )}
                         </div>
                     )}
                 </div>
