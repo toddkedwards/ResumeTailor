@@ -1239,6 +1239,240 @@
                 'Legal', 'Non-Profit', 'Government', 'Media/Entertainment', 'Other'
             ];
             
+            // Resume Builder Helper Functions
+            function addExperienceEntry() {
+                setFullResume(prev => ({
+                    ...prev,
+                    experience: [...prev.experience, {
+                        id: Date.now(),
+                        title: '',
+                        company: '',
+                        location: '',
+                        startDate: '',
+                        endDate: '',
+                        current: false,
+                        description: ''
+                    }]
+                }));
+            }
+            
+            function updateExperienceEntry(id, field, value) {
+                setFullResume(prev => ({
+                    ...prev,
+                    experience: prev.experience.map(exp => 
+                        exp.id === id ? { ...exp, [field]: value } : exp
+                    )
+                }));
+            }
+            
+            function removeExperienceEntry(id) {
+                setFullResume(prev => ({
+                    ...prev,
+                    experience: prev.experience.filter(exp => exp.id !== id)
+                }));
+            }
+            
+            function addEducationEntry() {
+                setFullResume(prev => ({
+                    ...prev,
+                    education: [...prev.education, {
+                        id: Date.now(),
+                        degree: '',
+                        school: '',
+                        location: '',
+                        graduationDate: '',
+                        gpa: '',
+                        honors: ''
+                    }]
+                }));
+            }
+            
+            function updateEducationEntry(id, field, value) {
+                setFullResume(prev => ({
+                    ...prev,
+                    education: prev.education.map(edu => 
+                        edu.id === id ? { ...edu, [field]: value } : edu
+                    )
+                }));
+            }
+            
+            function removeEducationEntry(id) {
+                setFullResume(prev => ({
+                    ...prev,
+                    education: prev.education.filter(edu => edu.id !== id)
+                }));
+            }
+            
+            function addSkill() {
+                setFullResume(prev => ({
+                    ...prev,
+                    skills: [...prev.skills, { id: Date.now(), name: '', category: 'Technical' }]
+                }));
+            }
+            
+            function updateSkill(id, field, value) {
+                setFullResume(prev => ({
+                    ...prev,
+                    skills: prev.skills.map(skill => 
+                        skill.id === id ? { ...skill, [field]: value } : skill
+                    )
+                }));
+            }
+            
+            function removeSkill(id) {
+                setFullResume(prev => ({
+                    ...prev,
+                    skills: prev.skills.filter(skill => skill.id !== id)
+                }));
+            }
+            
+            function addCertification() {
+                setFullResume(prev => ({
+                    ...prev,
+                    certifications: [...prev.certifications, {
+                        id: Date.now(),
+                        name: '',
+                        issuer: '',
+                        date: '',
+                        expiryDate: '',
+                        credentialId: ''
+                    }]
+                }));
+            }
+            
+            function updateCertification(id, field, value) {
+                setFullResume(prev => ({
+                    ...prev,
+                    certifications: prev.certifications.map(cert => 
+                        cert.id === id ? { ...cert, [field]: value } : cert
+                    )
+                }));
+            }
+            
+            function removeCertification(id) {
+                setFullResume(prev => ({
+                    ...prev,
+                    certifications: prev.certifications.filter(cert => cert.id !== id)
+                }));
+            }
+            
+            function addProject() {
+                setFullResume(prev => ({
+                    ...prev,
+                    projects: [...prev.projects, {
+                        id: Date.now(),
+                        name: '',
+                        description: '',
+                        technologies: '',
+                        url: '',
+                        date: ''
+                    }]
+                }));
+            }
+            
+            function updateProject(id, field, value) {
+                setFullResume(prev => ({
+                    ...prev,
+                    projects: prev.projects.map(proj => 
+                        proj.id === id ? { ...proj, [field]: value } : proj
+                    )
+                }));
+            }
+            
+            function removeProject(id) {
+                setFullResume(prev => ({
+                    ...prev,
+                    projects: prev.projects.filter(proj => proj.id !== id)
+                }));
+            }
+            
+            // Generate full resume text for tailoring
+            function generateFullResumeText() {
+                let text = '';
+                
+                // Contact
+                if (fullResume.contact.name) text += `${fullResume.contact.name}\n`;
+                if (fullResume.contact.email) text += `${fullResume.contact.email} | `;
+                if (fullResume.contact.phone) text += `${fullResume.contact.phone} | `;
+                if (fullResume.contact.location) text += `${fullResume.contact.location}\n`;
+                if (fullResume.contact.linkedin) text += `LinkedIn: ${fullResume.contact.linkedin}\n`;
+                if (fullResume.contact.website) text += `Website: ${fullResume.contact.website}\n`;
+                text += '\n';
+                
+                // Summary
+                if (fullResume.summary) {
+                    text += `PROFESSIONAL SUMMARY\n${fullResume.summary}\n\n`;
+                }
+                
+                // Experience
+                if (fullResume.experience.length > 0) {
+                    text += 'EXPERIENCE\n';
+                    fullResume.experience.forEach(exp => {
+                        if (exp.title || exp.company) {
+                            text += `${exp.title || ''}${exp.title && exp.company ? ' at ' : ''}${exp.company || ''}\n`;
+                            if (exp.location) text += `${exp.location}\n`;
+                            if (exp.startDate || exp.endDate) {
+                                text += `${exp.startDate || ''}${exp.endDate ? ` - ${exp.endDate}` : (exp.current ? ' - Present' : '')}\n`;
+                            }
+                            if (exp.description) text += `${exp.description}\n`;
+                            text += '\n';
+                        }
+                    });
+                }
+                
+                // Education
+                if (fullResume.education.length > 0) {
+                    text += 'EDUCATION\n';
+                    fullResume.education.forEach(edu => {
+                        if (edu.degree || edu.school) {
+                            text += `${edu.degree || ''}${edu.degree && edu.school ? ', ' : ''}${edu.school || ''}\n`;
+                            if (edu.location) text += `${edu.location}\n`;
+                            if (edu.graduationDate) text += `${edu.graduationDate}\n`;
+                            if (edu.gpa) text += `GPA: ${edu.gpa}\n`;
+                            if (edu.honors) text += `${edu.honors}\n`;
+                            text += '\n';
+                        }
+                    });
+                }
+                
+                // Skills
+                if (fullResume.skills.length > 0) {
+                    text += 'SKILLS\n';
+                    const skillsList = fullResume.skills.map(s => s.name).filter(s => s).join(', ');
+                    if (skillsList) text += `${skillsList}\n\n`;
+                }
+                
+                // Certifications
+                if (fullResume.certifications.length > 0) {
+                    text += 'CERTIFICATIONS\n';
+                    fullResume.certifications.forEach(cert => {
+                        if (cert.name) {
+                            text += `${cert.name}`;
+                            if (cert.issuer) text += ` - ${cert.issuer}`;
+                            if (cert.date) text += ` (${cert.date})`;
+                            text += '\n';
+                        }
+                    });
+                    text += '\n';
+                }
+                
+                // Projects
+                if (fullResume.projects.length > 0) {
+                    text += 'PROJECTS\n';
+                    fullResume.projects.forEach(proj => {
+                        if (proj.name) {
+                            text += `${proj.name}\n`;
+                            if (proj.description) text += `${proj.description}\n`;
+                            if (proj.technologies) text += `Technologies: ${proj.technologies}\n`;
+                            if (proj.url) text += `URL: ${proj.url}\n`;
+                            text += '\n';
+                        }
+                    });
+                }
+                
+                return text.trim();
+            }
+            
             async function saveResume(resumeText, jobDescription, sectionType) {
                 if (!db || !currentUserId || APP_ID === '__app_id') {
                     setError('Firebase not properly configured. Cannot save resume.');
@@ -2323,6 +2557,21 @@
                                         </div>
                                         <button
                                             onClick={() => {
+                                                setShowResumeBuilder(true);
+                                                trackEvent('resume_builder_opened');
+                                            }}
+                                            aria-label="Open resume builder"
+                                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                                                isDark 
+                                                    ? 'bg-violet-600 text-white hover:bg-violet-700' 
+                                                    : 'bg-violet-600 text-white hover:bg-violet-700'
+                                            }`}
+                                            title="Build Complete Resume"
+                                        >
+                                            📝 Builder
+                                        </button>
+                                        <button
+                                            onClick={() => {
                                                 setShowSavedResumes(!showSavedResumes);
                                                 trackEvent('saved_resumes_toggled');
                                             }}
@@ -2595,6 +2844,638 @@
                                         ))}
                                     </div>
                                 )}
+                            </div>
+                        )}
+                        
+                        {/* Full Resume Builder */}
+                        {showResumeBuilder && (
+                            <div className={`mb-6 rounded-2xl border shadow-sm p-8 animate-fade-in max-h-[90vh] overflow-y-auto ${
+                                isDark 
+                                    ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
+                                    : 'bg-white border-slate-200'
+                            }`}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className={`text-3xl font-bold tracking-tight ${
+                                        isDark ? 'text-white' : 'text-slate-900'
+                                    }`}>
+                                        Resume Builder
+                                    </h2>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => {
+                                                const resumeText = generateFullResumeText();
+                                                if (resumeText) {
+                                                    setResumeSection(resumeText);
+                                                    setShowResumeBuilder(false);
+                                                    showToast('Resume loaded into tailoring section!', 'success');
+                                                    trackEvent('resume_builder_loaded_to_tailor');
+                                                } else {
+                                                    showToast('Please add some content to your resume first', 'error');
+                                                }
+                                            }}
+                                            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                                                isDark 
+                                                    ? 'bg-violet-600 text-white hover:bg-violet-700' 
+                                                    : 'bg-violet-600 text-white hover:bg-violet-700'
+                                            }`}
+                                        >
+                                            Use for Tailoring
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                const resumeText = generateFullResumeText();
+                                                if (resumeText) {
+                                                    exportToPDF(resumeText, { title: fullResume.contact.name || 'Resume', fileName: fullResume.contact.name?.toLowerCase().replace(/\s+/g, '-') || 'resume' });
+                                                } else {
+                                                    showToast('Please add some content to your resume first', 'error');
+                                                }
+                                            }}
+                                            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                                                isDark 
+                                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                                                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                            }`}
+                                        >
+                                            Export PDF
+                                        </button>
+                                        <button
+                                            onClick={() => setShowResumeBuilder(false)}
+                                            className={`px-3 py-1 rounded-lg transition-colors ${
+                                                isDark 
+                                                    ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' 
+                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                            }`}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-6">
+                                    {/* Contact Information */}
+                                    <div className={`rounded-xl p-6 border ${
+                                        isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'
+                                    }`}>
+                                        <h3 className={`text-xl font-bold mb-4 ${
+                                            isDark ? 'text-white' : 'text-slate-900'
+                                        }`}>Contact Information</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <input
+                                                type="text"
+                                                placeholder="Full Name"
+                                                value={fullResume.contact.name}
+                                                onChange={(e) => setFullResume(prev => ({
+                                                    ...prev,
+                                                    contact: { ...prev.contact, name: e.target.value }
+                                                }))}
+                                                className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                    isDark 
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                        : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                            />
+                                            <input
+                                                type="email"
+                                                placeholder="Email"
+                                                value={fullResume.contact.email}
+                                                onChange={(e) => setFullResume(prev => ({
+                                                    ...prev,
+                                                    contact: { ...prev.contact, email: e.target.value }
+                                                }))}
+                                                className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                    isDark 
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                        : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                            />
+                                            <input
+                                                type="tel"
+                                                placeholder="Phone"
+                                                value={fullResume.contact.phone}
+                                                onChange={(e) => setFullResume(prev => ({
+                                                    ...prev,
+                                                    contact: { ...prev.contact, phone: e.target.value }
+                                                }))}
+                                                className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                    isDark 
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                        : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Location (City, State)"
+                                                value={fullResume.contact.location}
+                                                onChange={(e) => setFullResume(prev => ({
+                                                    ...prev,
+                                                    contact: { ...prev.contact, location: e.target.value }
+                                                }))}
+                                                className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                    isDark 
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                        : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                            />
+                                            <input
+                                                type="url"
+                                                placeholder="LinkedIn URL"
+                                                value={fullResume.contact.linkedin}
+                                                onChange={(e) => setFullResume(prev => ({
+                                                    ...prev,
+                                                    contact: { ...prev.contact, linkedin: e.target.value }
+                                                }))}
+                                                className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                    isDark 
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                        : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                            />
+                                            <input
+                                                type="url"
+                                                placeholder="Website/Portfolio"
+                                                value={fullResume.contact.website}
+                                                onChange={(e) => setFullResume(prev => ({
+                                                    ...prev,
+                                                    contact: { ...prev.contact, website: e.target.value }
+                                                }))}
+                                                className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                    isDark 
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                        : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Professional Summary */}
+                                    <div className={`rounded-xl p-6 border ${
+                                        isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'
+                                    }`}>
+                                        <h3 className={`text-xl font-bold mb-4 ${
+                                            isDark ? 'text-white' : 'text-slate-900'
+                                        }`}>Professional Summary</h3>
+                                        <textarea
+                                            value={fullResume.summary}
+                                            onChange={(e) => setFullResume(prev => ({ ...prev, summary: e.target.value }))}
+                                            placeholder="Write a brief professional summary highlighting your key qualifications and experience..."
+                                            rows="4"
+                                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none resize-y ${
+                                                isDark 
+                                                    ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                    : 'border-slate-300 bg-white text-slate-900'
+                                            }`}
+                                        />
+                                    </div>
+                                    
+                                    {/* Experience */}
+                                    <div className={`rounded-xl p-6 border ${
+                                        isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'
+                                    }`}>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className={`text-xl font-bold ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Experience</h3>
+                                            <button
+                                                onClick={addExperienceEntry}
+                                                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                                    isDark 
+                                                        ? 'bg-violet-600 text-white hover:bg-violet-700' 
+                                                        : 'bg-violet-600 text-white hover:bg-violet-700'
+                                                }`}
+                                            >
+                                                + Add Experience
+                                            </button>
+                                        </div>
+                                        {fullResume.experience.map((exp, idx) => (
+                                            <div key={exp.id} className={`mb-4 p-4 rounded-lg border ${
+                                                isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'
+                                            }`}>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className={`text-sm font-semibold ${
+                                                        isDark ? 'text-slate-300' : 'text-slate-700'
+                                                    }`}>Experience #{idx + 1}</span>
+                                                    <button
+                                                        onClick={() => removeExperienceEntry(exp.id)}
+                                                        className="text-red-500 hover:text-red-700 text-sm"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Job Title"
+                                                        value={exp.title}
+                                                        onChange={(e) => updateExperienceEntry(exp.id, 'title', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Company"
+                                                        value={exp.company}
+                                                        onChange={(e) => updateExperienceEntry(exp.id, 'company', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Location"
+                                                        value={exp.location}
+                                                        onChange={(e) => updateExperienceEntry(exp.id, 'location', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Start Date (MM/YYYY)"
+                                                            value={exp.startDate}
+                                                            onChange={(e) => updateExperienceEntry(exp.id, 'startDate', e.target.value)}
+                                                            className={`flex-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                                isDark 
+                                                                    ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                    : 'border-slate-300 bg-white text-slate-900'
+                                                            }`}
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="End Date (MM/YYYY)"
+                                                            value={exp.endDate}
+                                                            onChange={(e) => updateExperienceEntry(exp.id, 'endDate', e.target.value)}
+                                                            disabled={exp.current}
+                                                            className={`flex-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none disabled:opacity-50 ${
+                                                                isDark 
+                                                                    ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                    : 'border-slate-300 bg-white text-slate-900'
+                                                            }`}
+                                                        />
+                                                    </div>
+                                                    <label className="flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={exp.current}
+                                                            onChange={(e) => updateExperienceEntry(exp.id, 'current', e.target.checked)}
+                                                            className="rounded"
+                                                        />
+                                                        <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Current Position</span>
+                                                    </label>
+                                                    <textarea
+                                                        placeholder="Job description and achievements..."
+                                                        value={exp.description}
+                                                        onChange={(e) => updateExperienceEntry(exp.id, 'description', e.target.value)}
+                                                        rows="3"
+                                                        className={`col-span-2 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none resize-y ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
+                                    {/* Education */}
+                                    <div className={`rounded-xl p-6 border ${
+                                        isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'
+                                    }`}>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className={`text-xl font-bold ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Education</h3>
+                                            <button
+                                                onClick={addEducationEntry}
+                                                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                                    isDark 
+                                                        ? 'bg-violet-600 text-white hover:bg-violet-700' 
+                                                        : 'bg-violet-600 text-white hover:bg-violet-700'
+                                                }`}
+                                            >
+                                                + Add Education
+                                            </button>
+                                        </div>
+                                        {fullResume.education.map((edu, idx) => (
+                                            <div key={edu.id} className={`mb-4 p-4 rounded-lg border ${
+                                                isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'
+                                            }`}>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className={`text-sm font-semibold ${
+                                                        isDark ? 'text-slate-300' : 'text-slate-700'
+                                                    }`}>Education #{idx + 1}</span>
+                                                    <button
+                                                        onClick={() => removeEducationEntry(edu.id)}
+                                                        className="text-red-500 hover:text-red-700 text-sm"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Degree"
+                                                        value={edu.degree}
+                                                        onChange={(e) => updateEducationEntry(edu.id, 'degree', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="School/University"
+                                                        value={edu.school}
+                                                        onChange={(e) => updateEducationEntry(edu.id, 'school', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Location"
+                                                        value={edu.location}
+                                                        onChange={(e) => updateEducationEntry(edu.id, 'location', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Graduation Date"
+                                                        value={edu.graduationDate}
+                                                        onChange={(e) => updateEducationEntry(edu.id, 'graduationDate', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="GPA (optional)"
+                                                        value={edu.gpa}
+                                                        onChange={(e) => updateEducationEntry(edu.id, 'gpa', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Honors/Awards (optional)"
+                                                        value={edu.honors}
+                                                        onChange={(e) => updateEducationEntry(edu.id, 'honors', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
+                                    {/* Skills */}
+                                    <div className={`rounded-xl p-6 border ${
+                                        isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'
+                                    }`}>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className={`text-xl font-bold ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Skills</h3>
+                                            <button
+                                                onClick={addSkill}
+                                                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                                    isDark 
+                                                        ? 'bg-violet-600 text-white hover:bg-violet-700' 
+                                                        : 'bg-violet-600 text-white hover:bg-violet-700'
+                                                }`}
+                                            >
+                                                + Add Skill
+                                            </button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {fullResume.skills.map((skill) => (
+                                                <div key={skill.id} className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Skill name"
+                                                        value={skill.name}
+                                                        onChange={(e) => updateSkill(skill.id, 'name', e.target.value)}
+                                                        className={`flex-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <button
+                                                        onClick={() => removeSkill(skill.id)}
+                                                        className="px-3 py-2 text-sm text-red-500 hover:text-red-700"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Certifications */}
+                                    <div className={`rounded-xl p-6 border ${
+                                        isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'
+                                    }`}>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className={`text-xl font-bold ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Certifications</h3>
+                                            <button
+                                                onClick={addCertification}
+                                                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                                    isDark 
+                                                        ? 'bg-violet-600 text-white hover:bg-violet-700' 
+                                                        : 'bg-violet-600 text-white hover:bg-violet-700'
+                                                }`}
+                                            >
+                                                + Add Certification
+                                            </button>
+                                        </div>
+                                        {fullResume.certifications.map((cert, idx) => (
+                                            <div key={cert.id} className={`mb-4 p-4 rounded-lg border ${
+                                                isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'
+                                            }`}>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className={`text-sm font-semibold ${
+                                                        isDark ? 'text-slate-300' : 'text-slate-700'
+                                                    }`}>Certification #{idx + 1}</span>
+                                                    <button
+                                                        onClick={() => removeCertification(cert.id)}
+                                                        className="text-red-500 hover:text-red-700 text-sm"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Certification Name"
+                                                        value={cert.name}
+                                                        onChange={(e) => updateCertification(cert.id, 'name', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Issuing Organization"
+                                                        value={cert.issuer}
+                                                        onChange={(e) => updateCertification(cert.id, 'issuer', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Issue Date"
+                                                        value={cert.date}
+                                                        onChange={(e) => updateCertification(cert.id, 'date', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Expiry Date (if applicable)"
+                                                        value={cert.expiryDate}
+                                                        onChange={(e) => updateCertification(cert.id, 'expiryDate', e.target.value)}
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Credential ID (optional)"
+                                                        value={cert.credentialId}
+                                                        onChange={(e) => updateCertification(cert.id, 'credentialId', e.target.value)}
+                                                        className={`col-span-2 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
+                                    {/* Projects */}
+                                    <div className={`rounded-xl p-6 border ${
+                                        isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'
+                                    }`}>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className={`text-xl font-bold ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Projects</h3>
+                                            <button
+                                                onClick={addProject}
+                                                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                                    isDark 
+                                                        ? 'bg-violet-600 text-white hover:bg-violet-700' 
+                                                        : 'bg-violet-600 text-white hover:bg-violet-700'
+                                                }`}
+                                            >
+                                                + Add Project
+                                            </button>
+                                        </div>
+                                        {fullResume.projects.map((proj, idx) => (
+                                            <div key={proj.id} className={`mb-4 p-4 rounded-lg border ${
+                                                isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'
+                                            }`}>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className={`text-sm font-semibold ${
+                                                        isDark ? 'text-slate-300' : 'text-slate-700'
+                                                    }`}>Project #{idx + 1}</span>
+                                                    <button
+                                                        onClick={() => removeProject(proj.id)}
+                                                        className="text-red-500 hover:text-red-700 text-sm"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Project Name"
+                                                        value={proj.name}
+                                                        onChange={(e) => updateProject(proj.id, 'name', e.target.value)}
+                                                        className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <textarea
+                                                        placeholder="Project description..."
+                                                        value={proj.description}
+                                                        onChange={(e) => updateProject(proj.id, 'description', e.target.value)}
+                                                        rows="3"
+                                                        className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none resize-y ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                : 'border-slate-300 bg-white text-slate-900'
+                                                        }`}
+                                                    />
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Technologies Used"
+                                                            value={proj.technologies}
+                                                            onChange={(e) => updateProject(proj.id, 'technologies', e.target.value)}
+                                                            className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                                isDark 
+                                                                    ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                    : 'border-slate-300 bg-white text-slate-900'
+                                                            }`}
+                                                        />
+                                                        <input
+                                                            type="url"
+                                                            placeholder="Project URL"
+                                                            value={proj.url}
+                                                            onChange={(e) => updateProject(proj.id, 'url', e.target.value)}
+                                                            className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                                isDark 
+                                                                    ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                                    : 'border-slate-300 bg-white text-slate-900'
+                                                            }`}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         )}
                         
