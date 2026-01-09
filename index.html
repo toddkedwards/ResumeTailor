@@ -12,7 +12,7 @@
     <meta name="description" content="Optimize your resume for ATS keyword alignment. Tailor your resume to job descriptions with AI-powered keyword matching and improvement tips.">
     <meta name="keywords" content="resume tailor, ATS resume, resume optimization, keyword matching, resume builder, job application, resume improvement">
     <meta name="author" content="ResumeForge">
-    <meta name="theme-color" content="#7c3aed">
+    <meta name="theme-color" content="#1e293b">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
@@ -632,10 +632,11 @@
             const [uploadedResume, setUploadedResume] = useState('');
             const [uploadedFileName, setUploadedFileName] = useState('');
             
-            // Theme state - initialize from localStorage or default to light
+            // Theme state - initialize from localStorage or default to dark (matching landing page)
             const [isDark, setIsDark] = useState(() => {
                 const saved = localStorage.getItem('resumeforge_theme');
-                return saved === 'dark';
+                // Default to dark mode (like landing page) if no preference saved
+                return saved ? saved === 'dark' : true;
             });
             const [showSavedResumes, setShowSavedResumes] = useState(false);
             const [resumeName, setResumeName] = useState('');
@@ -2376,12 +2377,21 @@
                                         >
                                             {isDark ? '☀️' : '🌙'}
                                         </button>
-                                        <div className={`px-3 py-1.5 rounded-lg ${
-                                            isDark ? 'bg-slate-800' : 'bg-slate-50'
-                                        }`}>
-                                            <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Credits</div>
+                                        <button
+                                            onClick={() => {
+                                                trackEvent('pricing_modal_opened');
+                                                setShowPricingModal(true);
+                                            }}
+                                            className={`px-3 py-1.5 rounded-lg transition-colors flex flex-col items-center justify-center min-w-[60px] ${
+                                                isDark 
+                                                    ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                            }`}
+                                            title="Credits remaining - Click to buy more"
+                                        >
+                                            <div className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Credits</div>
                                             <div className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{credits}</div>
-                                        </div>
+                                        </button>
                                         <button
                                             onClick={() => {
                                                 trackEvent('pricing_modal_opened');
@@ -2439,7 +2449,7 @@
                         {usageLimit && usageLimit.remaining >= 0 && (
                             <div className={`mb-6 p-4 rounded-xl border ${
                                 isDark 
-                                    ? 'bg-slate-800 border-slate-700' 
+                                    ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
                                     : 'bg-slate-100 border-slate-200'
                             }`}>
                                 <div className="flex justify-between items-center">
@@ -2471,7 +2481,7 @@
                         {showSavedResumes && (
                             <div className={`mb-6 rounded-2xl border shadow-sm p-8 animate-fade-in ${
                                 isDark 
-                                    ? 'bg-slate-800 border-slate-700' 
+                                    ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
                                     : 'bg-white border-slate-200'
                             }`}>
                                 <div className="flex justify-between items-center mb-6">
@@ -2591,7 +2601,7 @@
                         {/* Input Form */}
                         <div className={`rounded-2xl border shadow-sm p-8 mb-10 hover:shadow-md transition-all duration-300 ${
                             isDark 
-                                ? 'bg-slate-800 border-slate-700' 
+                                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
                                 : 'bg-white border-slate-200'
                         }`}>
                             <div className="space-y-6 mb-6">
@@ -2830,7 +2840,7 @@
                                 {keywordMatches && (
                                     <div className={`rounded-2xl border shadow-sm p-6 ${
                                         isDark 
-                                            ? 'bg-slate-800 border-slate-700' 
+                                            ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
                                             : 'bg-white border-slate-200'
                                     }`}>
                                         <h2 className={`text-2xl font-bold mb-4 ${
@@ -2871,7 +2881,7 @@
                                 {atsScore !== null && (
                                     <div className={`rounded-2xl border shadow-sm p-6 ${
                                         isDark 
-                                            ? 'bg-slate-800 border-slate-700' 
+                                            ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
                                             : 'bg-white border-slate-200'
                                     }`}>
                                         <div className="flex items-center justify-between mb-4">
@@ -2960,7 +2970,7 @@
                                 {/* Tailored Resume Section */}
                                 <div className={`rounded-2xl border shadow-sm p-6 ${
                                     isDark 
-                                        ? 'bg-slate-800 border-slate-700' 
+                                        ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
                                         : 'bg-white border-slate-200'
                                 }`}>
                                     <div className="flex justify-between items-center mb-4">
