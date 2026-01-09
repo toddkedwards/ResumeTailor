@@ -89,7 +89,7 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
           quantity: 1,
         },
       ],
-      success_url: `${data.successUrl || 'https://resumeforgeapp.com?session_id={CHECKOUT_SESSION_ID}'}`,
+      success_url: `${data.successUrl || 'https://resumeforgeapp.com'}?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${data.cancelUrl || 'https://resumeforgeapp.com'}`,
       metadata: {
         firebaseUserId: userId,
@@ -145,7 +145,27 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed':
         const session = event.data.object;
+        console.log(`Processing checkout.session.completed for session: ${session.id}`);
         await handlePaymentSuccess(session);
+        break;
+      
+      case 'payment_intent.succeeded':
+        // Fallback: if checkout.session.completed didn't fire, handle payment_intent
+        const paymentIntent = event.data.object;
+        console.log(`Payment intent succeeded: ${paymentIntent.id}`);
+        // Try to retrieve the checkout session from metadata
+        if (paymentIntent.metadata?.checkout_session_id) {
+          try {
+            const checkoutSession = await stripe.checkout.sessions.retrieve(
+              paymentIntent.metadata.checkout_session_id
+            );
+            if (checkoutSession.payment_status === 'paid') {
+              await handlePaymentSuccess(checkoutSession);
+            }
+          } catch (err) {
+            console.error('Error retrieving checkout session:', err);
+          }
+        }
         break;
 
       // Subscription events no longer needed for one-time payments
@@ -174,21 +194,33 @@ async function handlePaymentSuccess(session) {
     return;
   }
 
-  const creditsToAdd = parseInt(session.metadata?.creditsToAdd || '1', 10);
+  // Check if payment was actually completed
+  if (session.payment_status !== 'paid') {
+    console.warn(`Payment not completed for session ${session.id}. Status: ${session.payment_status}`);
+    return;
+  }
+
+  const creditsToAdd = parseInt(session.metadata?.creditsToAdd || '5', 10);
   const userRef = admin.firestore().doc(`artifacts/${APP_ID}/users/${userId}`);
   const userDoc = await userRef.get();
 
   const currentCredits = userDoc.exists() ? (userDoc.data().credits || 0) : 0;
   const hasPaidOnce = userDoc.exists() ? (userDoc.data().hasPaidOnce || false) : false;
 
-  await userRef.set({
-    credits: currentCredits + creditsToAdd,
-    hasPaidOnce: true, // Unlock premium features after first payment
-    lastCreditPurchase: admin.firestore.FieldValue.serverTimestamp(),
-    stripeCustomerId: session.customer,
-  }, { merge: true });
+  // Use transaction to prevent race conditions
+  await admin.firestore().runTransaction(async (transaction) => {
+    const doc = await transaction.get(userRef);
+    const existingCredits = doc.exists() ? (doc.data().credits || 0) : 0;
+    
+    transaction.set(userRef, {
+      credits: existingCredits + creditsToAdd,
+      hasPaidOnce: true,
+      lastCreditPurchase: admin.firestore.FieldValue.serverTimestamp(),
+      stripeCustomerId: session.customer,
+    }, { merge: true });
+  });
 
-  console.log(`Added ${creditsToAdd} credits to user: ${userId}`);
+  console.log(`Added ${creditsToAdd} credits to user: ${userId}. New total: ${currentCredits + creditsToAdd}`);
 }
 
 /**
