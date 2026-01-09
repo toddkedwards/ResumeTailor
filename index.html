@@ -476,6 +476,10 @@
                 const currentTotal = userData.totalGenerations || 0;
                 updateData.totalGenerations = currentTotal + 1;
                 
+                // Track credits used
+                const currentCreditsUsed = userData.creditsUsed || 0;
+                updateData.creditsUsed = currentCreditsUsed + 1;
+                
                 // Deduct credit (no free generations)
                 if (credits > 0) {
                     updateData.credits = credits - 1;
@@ -2381,19 +2385,60 @@
                     
                     const userData = userSnap.exists() ? userSnap.data() : {};
                     
-                    // Calculate credits used (total - remaining)
+                    // Calculate credits used
+                    // Each generation uses 1 credit, so creditsUsed = totalGenerations
+                    // We also track it separately in case of edge cases
                     const totalGens = userData.totalGenerations || 0;
                     const remainingCredits = userData.credits || 0;
-                    const creditsUsed = Math.max(0, totalGens - remainingCredits);
+                    const trackedCreditsUsed = userData.creditsUsed || 0;
+                    // Use tracked value if available, otherwise calculate from generations
+                    // Each generation = 1 credit used
+                    const creditsUsed = trackedCreditsUsed > 0 ? trackedCreditsUsed : totalGens;
                     
                     // Format dates safely
                     let accountCreated = 'N/A';
+                    // Try createdAt first, then fall back to firstGenerationDate or lastGenerationDate
                     if (userData.createdAt) {
                         try {
                             if (userData.createdAt.toMillis) {
                                 accountCreated = new Date(userData.createdAt.toMillis()).toLocaleDateString();
                             } else if (userData.createdAt.seconds) {
                                 accountCreated = new Date(userData.createdAt.seconds * 1000).toLocaleDateString();
+                            }
+                        } catch (e) {
+                            // Try fallback to firstGenerationDate or lastGenerationDate
+                            if (userData.firstGenerationDate) {
+                                try {
+                                    if (userData.firstGenerationDate.toMillis) {
+                                        accountCreated = new Date(userData.firstGenerationDate.toMillis()).toLocaleDateString();
+                                    } else if (userData.firstGenerationDate.seconds) {
+                                        accountCreated = new Date(userData.firstGenerationDate.seconds * 1000).toLocaleDateString();
+                                    }
+                                } catch (e2) {
+                                    accountCreated = 'N/A';
+                                }
+                            } else if (userData.lastGenerationDate && totalGens > 0) {
+                                // Use last generation date as approximation if no createdAt
+                                try {
+                                    if (userData.lastGenerationDate.toMillis) {
+                                        accountCreated = new Date(userData.lastGenerationDate.toMillis()).toLocaleDateString();
+                                    } else if (userData.lastGenerationDate.seconds) {
+                                        accountCreated = new Date(userData.lastGenerationDate.seconds * 1000).toLocaleDateString();
+                                    }
+                                } catch (e2) {
+                                    accountCreated = 'N/A';
+                                }
+                            } else {
+                                accountCreated = 'N/A';
+                            }
+                        }
+                    } else if (userData.lastGenerationDate && totalGens > 0) {
+                        // Fallback: use last generation date if no createdAt
+                        try {
+                            if (userData.lastGenerationDate.toMillis) {
+                                accountCreated = new Date(userData.lastGenerationDate.toMillis()).toLocaleDateString();
+                            } else if (userData.lastGenerationDate.seconds) {
+                                accountCreated = new Date(userData.lastGenerationDate.seconds * 1000).toLocaleDateString();
                             }
                         } catch (e) {
                             accountCreated = 'N/A';
