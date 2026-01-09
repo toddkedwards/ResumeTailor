@@ -93,7 +93,7 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
       cancel_url: `${data.cancelUrl || 'https://resumeforgeapp.com'}`,
       metadata: {
         firebaseUserId: userId,
-        creditsToAdd: '5', // Add 5 credits per purchase ($1.00 for 5 credits)
+        creditsToAdd: '5', // Add 5 credits per purchase ($2.00 for 5 credits)
       },
       // Ensure 3D Secure is enabled (required for Apple Pay/Google Pay)
       payment_method_options: {
@@ -123,6 +123,13 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
  * Handles Stripe webhook events for subscription updates
  */
 exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
+  console.log('Webhook received:', {
+    method: req.method,
+    headers: Object.keys(req.headers),
+    hasBody: !!req.body,
+    bodyType: typeof req.body
+  });
+
   if (!stripe) {
     console.error('Stripe is not configured');
     return res.status(500).json({ error: 'Stripe is not configured' });
@@ -131,12 +138,25 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = functions.config().stripe?.webhook_secret;
 
+  if (!webhookSecret) {
+    console.error('Webhook secret not configured');
+    return res.status(500).json({ error: 'Webhook secret not configured' });
+  }
+
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+    // For Firebase Functions, we need to use req.rawBody if available, otherwise req.body
+    const rawBody = req.rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    console.log('Webhook event verified:', event.type, event.id);
   } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
+    console.error('Webhook signature verification failed:', {
+      error: err.message,
+      hasSignature: !!sig,
+      hasSecret: !!webhookSecret,
+      bodyLength: req.rawBody?.length || req.body?.length || 0
+    });
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -145,37 +165,80 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed':
         const session = event.data.object;
-        console.log(`Processing checkout.session.completed for session: ${session.id}`);
-        await handlePaymentSuccess(session);
+        console.log('Processing checkout.session.completed:', {
+          sessionId: session.id,
+          paymentStatus: session.payment_status,
+          userId: session.metadata?.firebaseUserId,
+          creditsToAdd: session.metadata?.creditsToAdd
+        });
+        
+        if (session.payment_status === 'paid') {
+          await handlePaymentSuccess(session);
+          console.log('Successfully processed payment for session:', session.id);
+        } else {
+          console.warn('Session not paid yet:', session.payment_status);
+        }
         break;
       
       case 'payment_intent.succeeded':
         // Fallback: if checkout.session.completed didn't fire, handle payment_intent
         const paymentIntent = event.data.object;
-        console.log(`Payment intent succeeded: ${paymentIntent.id}`);
-        // Try to retrieve the checkout session from metadata
+        console.log('Payment intent succeeded:', {
+          paymentIntentId: paymentIntent.id,
+          amount: paymentIntent.amount,
+          metadata: paymentIntent.metadata
+        });
+        
+        // Try to find the checkout session from the payment intent
         if (paymentIntent.metadata?.checkout_session_id) {
           try {
             const checkoutSession = await stripe.checkout.sessions.retrieve(
               paymentIntent.metadata.checkout_session_id
             );
+            console.log('Retrieved checkout session from payment intent:', {
+              sessionId: checkoutSession.id,
+              paymentStatus: checkoutSession.payment_status
+            });
             if (checkoutSession.payment_status === 'paid') {
               await handlePaymentSuccess(checkoutSession);
             }
           } catch (err) {
             console.error('Error retrieving checkout session:', err);
           }
+        } else {
+          // Try to find checkout session by customer and recent payments
+          if (paymentIntent.customer) {
+            try {
+              const sessions = await stripe.checkout.sessions.list({
+                customer: paymentIntent.customer,
+                limit: 1
+              });
+              if (sessions.data.length > 0) {
+                const checkoutSession = sessions.data[0];
+                console.log('Found checkout session via customer lookup:', checkoutSession.id);
+                if (checkoutSession.payment_status === 'paid') {
+                  await handlePaymentSuccess(checkoutSession);
+                }
+              }
+            } catch (err) {
+              console.error('Error finding checkout session:', err);
+            }
+          }
         }
         break;
 
       // Subscription events no longer needed for one-time payments
       default:
-        console.log(`Unhandled event type ${event.type}`);
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
     res.json({ received: true });
   } catch (error) {
-    console.error('Error processing webhook event:', error);
+    console.error('Error processing webhook event:', {
+      error: error.message,
+      stack: error.stack,
+      eventType: event.type
+    });
     // Return 500 so Stripe knows to retry
     res.status(500).json({ 
       received: false, 
@@ -188,9 +251,19 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
  * Handle payment success - add credits to user account
  */
 async function handlePaymentSuccess(session) {
+  console.log('handlePaymentSuccess called:', {
+    sessionId: session.id,
+    paymentStatus: session.payment_status,
+    metadata: session.metadata,
+    customer: session.customer
+  });
+
   const userId = session.metadata?.firebaseUserId;
   if (!userId) {
-    console.error('No firebaseUserId in session metadata', session.metadata);
+    console.error('No firebaseUserId in session metadata', {
+      sessionId: session.id,
+      metadata: session.metadata
+    });
     return;
   }
 
@@ -203,14 +276,28 @@ async function handlePaymentSuccess(session) {
   const creditsToAdd = parseInt(session.metadata?.creditsToAdd || '5', 10);
   const userRef = admin.firestore().doc(`artifacts/${APP_ID}/users/${userId}`);
   
+  console.log('Adding credits:', {
+    userId,
+    creditsToAdd,
+    appId: APP_ID,
+    userPath: `artifacts/${APP_ID}/users/${userId}`
+  });
+  
   try {
     // Use transaction to prevent race conditions
     await admin.firestore().runTransaction(async (transaction) => {
       const doc = await transaction.get(userRef);
       const existingCredits = doc.exists() ? (doc.data().credits || 0) : 0;
+      const newCredits = existingCredits + creditsToAdd;
+      
+      console.log('Transaction: updating credits', {
+        existingCredits,
+        creditsToAdd,
+        newCredits
+      });
       
       transaction.set(userRef, {
-        credits: existingCredits + creditsToAdd,
+        credits: newCredits,
         hasPaidOnce: true,
         lastCreditPurchase: admin.firestore.FieldValue.serverTimestamp(),
         stripeCustomerId: session.customer,
@@ -220,9 +307,20 @@ async function handlePaymentSuccess(session) {
     // Verify the update
     const verifyDoc = await userRef.get();
     const newCredits = verifyDoc.exists() ? (verifyDoc.data().credits || 0) : 0;
-    console.log(`Successfully added ${creditsToAdd} credits to user: ${userId}. New total: ${newCredits}`);
+    console.log(`✅ Successfully added ${creditsToAdd} credits to user: ${userId}. New total: ${newCredits}`);
+    
+    // Log full user document for debugging
+    if (verifyDoc.exists()) {
+      console.log('User document after update:', verifyDoc.data());
+    } else {
+      console.error('⚠️ User document does not exist after update!');
+    }
   } catch (error) {
-    console.error(`Error adding credits to user ${userId}:`, error);
+    console.error(`❌ Error adding credits to user ${userId}:`, {
+      error: error.message,
+      stack: error.stack,
+      code: error.code
+    });
     throw error; // Re-throw so webhook can retry
   }
 }

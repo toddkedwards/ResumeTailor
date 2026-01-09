@@ -261,7 +261,7 @@
         
         // Stripe Configuration - REPLACE WITH YOUR STRIPE PUBLISHABLE KEY
         const STRIPE_PUBLISHABLE_KEY = 'pk_test_51RbOo8KfMIBsUfylIZIdikgVnL7C1Mfdj61d8AJj3splHLHAloyepn6y4Olte2QtGviWpBE8OuYqN6F20LKwLJQl00aZ5sdgj0';
-        const STRIPE_PRICE_ID = 'price_1Skud7QQl8oxreSlbAkOS13N'; // $1.00 for 5 credits - UPDATE THIS with your actual Stripe price ID
+        const STRIPE_PRICE_ID = 'price_1Skud7QQl8oxreSlbAkOS13N'; // $2.00 for 5 credits - UPDATE THIS with your actual Stripe price ID for $2.00
         
         // Firebase initialization
         let app, auth, db, functions;
@@ -2749,7 +2749,7 @@
                                         <div className={`text-6xl font-bold ${
                                             isDark ? 'text-white' : 'text-slate-900'
                                         }`}>
-                                            $1.00
+                                            $2.00
                                         </div>
                                         <div className={`text-2xl ${
                                             isDark ? 'text-slate-400' : 'text-slate-600'
@@ -2771,7 +2771,7 @@
                                             }`}>5 Credits</div>
                                             <div className={`text-sm ${
                                                 isDark ? 'text-slate-400' : 'text-slate-600'
-                                            }`}>Only $1.00</div>
+                                            }`}>Only $2.00</div>
                                         </div>
                                         <div className={`p-5 rounded-xl ${
                                             isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200 shadow-sm'
@@ -2856,7 +2856,7 @@
                                                 isDark ? 'text-white' : 'text-slate-900'
                                             }`}>How many credits do I need?</h3>
                                             <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
-                                                Each resume tailoring uses 1 credit. With 5 credits for $1.00, you can tailor 5 different resumes.
+                                                Each resume tailoring uses 1 credit. With 5 credits for $2.00, you can tailor 5 different resumes.
                                             </p>
                                         </div>
                                     </div>
@@ -3016,7 +3016,7 @@
                                                     : 'bg-violet-600 text-white hover:bg-violet-700'
                                             }`}
                                         >
-                                            Buy ($1.00)
+                                            Buy ($2.00)
                                         </button>
                                         <button
                                             onClick={handleSignOut}
@@ -3051,7 +3051,7 @@
                                                     : 'bg-violet-600 text-white hover:bg-violet-700'
                                             }`}
                                         >
-                                            Buy Credits ($1.00)
+                                            Buy Credits ($2.00)
                                 </button>
                                     </>
                                 )}
@@ -4872,7 +4872,7 @@
                                                         <span>Processing...</span>
                                                     </>
                                                 ) : (
-                                                    'Buy 5 Credits - $1.00'
+                                                    'Buy 5 Credits - $2.00'
                                                 )}
                                             </button>
                                         )}
@@ -5491,7 +5491,7 @@
                                                         <span>Processing...</span>
                                                     </>
                                                 ) : (
-                                                    'Buy 5 Credits - $1.00'
+                                                    'Buy 5 Credits - $2.00'
                                                 )}
                                             </button>
                                         )}
