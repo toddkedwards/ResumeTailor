@@ -4911,6 +4911,113 @@
                                     </div>
                                 )}
                                 
+                                {/* Cover Letter Display */}
+                                {showCoverLetter && coverLetter && (
+                                    <div className={`mb-6 rounded-2xl border shadow-sm p-8 animate-fade-in ${
+                                        isDark 
+                                            ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
+                                            : 'bg-white border-slate-200'
+                                    }`}>
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h2 className={`text-3xl font-bold tracking-tight ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>
+                                                Cover Letter
+                                            </h2>
+                                            <button
+                                                onClick={() => setShowCoverLetter(false)}
+                                                className={`px-3 py-1 rounded-lg transition-colors ${
+                                                    isDark 
+                                                        ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' 
+                                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                                }`}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                        
+                                        {coverLetterHighlights && coverLetterHighlights.length > 0 && (
+                                            <div className={`mb-6 p-4 rounded-lg ${
+                                                isDark ? 'bg-slate-700/50 border border-slate-600' : 'bg-blue-50 border border-blue-200'
+                                            }`}>
+                                                <h3 className={`text-sm font-bold mb-2 ${
+                                                    isDark ? 'text-white' : 'text-slate-900'
+                                                }`}>Key Highlights:</h3>
+                                                <ul className="space-y-1">
+                                                    {coverLetterHighlights.map((highlight, idx) => (
+                                                        <li key={idx} className={`text-sm flex items-start gap-2 ${
+                                                            isDark ? 'text-slate-300' : 'text-slate-700'
+                                                        }`}>
+                                                            <span className="text-blue-500 mt-0.5">•</span>
+                                                            <span>{highlight}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        
+                                        <div className={`p-6 rounded-xl border ${
+                                            isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'
+                                        }`}>
+                                            <textarea
+                                                value={coverLetter}
+                                                onChange={(e) => setCoverLetter(e.target.value)}
+                                                className={`w-full h-96 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all duration-200 resize-y ${
+                                                    isDark 
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-500 hover:border-slate-500' 
+                                                        : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 hover:border-slate-400'
+                                                }`}
+                                                placeholder="Cover letter will appear here..."
+                                            />
+                                            <div className={`flex justify-between items-center mt-2 text-xs ${
+                                                isDark ? 'text-slate-400' : 'text-slate-500'
+                                            }`}>
+                                                <span>{countWords(coverLetter)} words</span>
+                                                <span>{countCharacters(coverLetter)} characters</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex gap-3 mt-6">
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(coverLetter);
+                                                    showToast('Cover letter copied to clipboard!', 'success');
+                                                    trackEvent('cover_letter_copied');
+                                                }}
+                                                className={`px-4 py-2 rounded-xl font-semibold transition-colors ${
+                                                    isDark 
+                                                        ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                                                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                                }`}
+                                            >
+                                                📋 Copy Cover Letter
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const element = document.createElement('a');
+                                                    const blob = new Blob([coverLetter], { type: 'text/plain' });
+                                                    const url = URL.createObjectURL(blob);
+                                                    element.href = url;
+                                                    element.download = `cover-letter-${new Date().toISOString().split('T')[0]}.txt`;
+                                                    document.body.appendChild(element);
+                                                    element.click();
+                                                    document.body.removeChild(element);
+                                                    URL.revokeObjectURL(url);
+                                                    showToast('Cover letter downloaded!', 'success');
+                                                    trackEvent('cover_letter_downloaded');
+                                                }}
+                                                className={`px-4 py-2 rounded-xl font-semibold transition-colors ${
+                                                    isDark 
+                                                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                                                }`}
+                                            >
+                                                💾 Download
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                
                                 {/* Tailored Resume Section */}
                                 {tailoredResume && (
                                     <div className={`rounded-2xl border shadow-sm p-8 ${
