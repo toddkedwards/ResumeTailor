@@ -421,7 +421,7 @@
         
         async function checkUsageLimit() {
             // No free generations - only credits
-            const userData = await getUserSubscriptionData();
+                const userData = await getUserSubscriptionData();
             if (!userData) {
                 return { 
                     canGenerate: false, 
@@ -745,12 +745,12 @@
                         
                         // Load user subscription data with error handling
                         try {
-                            const userData = await getUserSubscriptionData();
-                            setSubscriptionData(userData);
-                            
-                            // Check usage limits
-                            const limit = await checkUsageLimit();
-                            setUsageLimit(limit);
+                        const userData = await getUserSubscriptionData();
+                        setSubscriptionData(userData);
+                        
+                        // Check usage limits
+                        const limit = await checkUsageLimit();
+                        setUsageLimit(limit);
                         } catch (error) {
                             console.error('Error loading subscription data:', error);
                             // Set default values on error
@@ -804,10 +804,10 @@
                 if (firebaseReady && currentUserId) {
                     const interval = setInterval(async () => {
                         try {
-                            const limit = await checkUsageLimit();
-                            setUsageLimit(limit);
-                            const userData = await getUserSubscriptionData();
-                            setSubscriptionData(userData);
+                        const limit = await checkUsageLimit();
+                        setUsageLimit(limit);
+                        const userData = await getUserSubscriptionData();
+                        setSubscriptionData(userData);
                         } catch (error) {
                             console.error('Error refreshing subscription data:', error);
                             // Don't show error toast on background refresh to avoid annoying users
@@ -1087,20 +1087,20 @@
                 const result = await signUpWithEmail(email, password);
                 setAuthLoading(false);
                 
-                    if (result.success) {
-                        trackEvent('user_signup_success');
-                        showToast('Account created successfully!', 'success');
-                        setShowAuthModal(false);
+                if (result.success) {
+                    trackEvent('user_signup_success');
+                    showToast('Account created successfully!', 'success');
+                    setShowAuthModal(false);
                         setShowLanding(false);
                     setEmail('');
                     setPassword('');
                     
                     // Initialize user data
                     try {
-                        const userData = await getUserSubscriptionData();
-                        setSubscriptionData(userData);
-                        const limit = await checkUsageLimit();
-                        setUsageLimit(limit);
+                    const userData = await getUserSubscriptionData();
+                    setSubscriptionData(userData);
+                    const limit = await checkUsageLimit();
+                    setUsageLimit(limit);
                     } catch (error) {
                         console.error('Error loading subscription data after sign up:', error);
                         
@@ -1149,10 +1149,10 @@
                     setShowLanding(false);
                     
                     try {
-                        const userData = await getUserSubscriptionData();
-                        setSubscriptionData(userData);
-                        const limit = await checkUsageLimit();
-                        setUsageLimit(limit);
+                    const userData = await getUserSubscriptionData();
+                    setSubscriptionData(userData);
+                    const limit = await checkUsageLimit();
+                    setUsageLimit(limit);
                     } catch (error) {
                         console.error('Error loading subscription data after sign in:', error);
                         
@@ -1624,7 +1624,7 @@
                                             <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                             </svg>
-                                            <div className="text-right">
+                                        <div className="text-right">
                                                 <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{user.email?.split('@')[0]}</div>
                                             </div>
                                         </div>
@@ -1700,20 +1700,20 @@
                                     </>
                                 ) : (
                                     <>
-                                        <button
-                                            onClick={() => {
-                                                trackEvent('auth_modal_opened');
-                                                setShowAuthModal(true);
-                                            }}
+                                    <button
+                                        onClick={() => {
+                                            trackEvent('auth_modal_opened');
+                                            setShowAuthModal(true);
+                                        }}
                                             className="px-4 py-2 text-sm text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors"
-                                        >
+                                    >
                                             Sign In
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                trackEvent('pricing_modal_opened');
-                                                setShowPricingModal(true);
-                                            }}
+                                    </button>
+                                <button
+                                    onClick={() => {
+                                        trackEvent('pricing_modal_opened');
+                                        setShowPricingModal(true);
+                                    }}
                                             className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
                                                 isDark
                                                     ? 'bg-blue-600 text-white hover:bg-blue-700'
@@ -1721,7 +1721,7 @@
                                             }`}
                                         >
                                             Buy Credits ($1.00)
-                                        </button>
+                                </button>
                                     </>
                                 )}
                             </div>
@@ -1879,8 +1879,8 @@
                                         <label className={`block text-sm font-semibold tracking-wide ${
                                             isDark ? 'text-slate-300' : 'text-slate-700'
                                         }`}>
-                                            Current Resume Section *
-                                        </label>
+                                        Current Resume Section *
+                                    </label>
                                         <label className={`cursor-pointer px-3 py-1.5 text-xs rounded-lg transition-colors ${
                                             isDark 
                                                 ? 'bg-slate-700 text-white hover:bg-slate-600' 
@@ -2230,8 +2230,8 @@
                                             <p className="text-slate-600 text-sm">
                                                 Generating improvement tips... If none appear, try tailoring again or check that the job description contains specific requirements.
                                             </p>
-                                        </div>
-                                    )}
+                                    </div>
+                                )}
                                 </div>
                             </div>
                         )}
@@ -2416,7 +2416,7 @@
                                     </h2>
                                     <button
                                         onClick={() => setShowPricingModal(false)}
-                                        className="text-slate-400 hover:text-slate-600"
+                                        className={isDark ? 'text-slate-300 hover:text-white' : 'text-slate-400 hover:text-slate-600'}
                                     >
                                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2448,31 +2448,31 @@
                                                 <svg className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                 </svg>
-                                                <span className="text-slate-700">Unlock premium features after first purchase (advanced tailoring, export options)</span>
+                                                <span className={isDark ? 'text-slate-200' : 'text-slate-700'}>Unlock premium features after first purchase (advanced tailoring, export options)</span>
                                             </li>
                                             <li className="flex items-start gap-3">
                                                 <svg className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                 </svg>
-                                                <span className="text-slate-700">Keyword analysis and improvement tips for ATS optimization</span>
+                                                <span className={isDark ? 'text-slate-200' : 'text-slate-700'}>Keyword analysis and improvement tips for ATS optimization</span>
                                             </li>
                                             <li className="flex items-start gap-3">
                                                 <svg className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                 </svg>
-                                                <span className="text-slate-700">Export to PDF and Word documents</span>
+                                                <span className={isDark ? 'text-slate-200' : 'text-slate-700'}>Export to PDF and Word documents</span>
                                             </li>
                                             <li className="flex items-start gap-3">
                                                 <svg className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                 </svg>
-                                                <span className="text-slate-700">Create custom tones</span>
+                                                <span className={isDark ? 'text-slate-200' : 'text-slate-700'}>Create custom tones</span>
                                             </li>
                                             <li className="flex items-start gap-3">
                                                 <svg className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                 </svg>
-                                                <span className="text-slate-700">Priority processing</span>
+                                                <span className={isDark ? 'text-slate-200' : 'text-slate-700'}>Priority processing</span>
                                             </li>
                                         </ul>
                                         
@@ -2488,7 +2488,9 @@
                                                 >
                                                     Sign Up & Start 1-Day Free Trial
                                                 </button>
-                                                <p className="text-center text-sm text-slate-600">
+                                                <p className={`text-center text-sm ${
+                                                    isDark ? 'text-slate-300' : 'text-slate-600'
+                                                }`}>
                                                     Already have an account?{' '}
                                                     <button
                                                         onClick={() => {
@@ -2504,8 +2506,12 @@
                                             </div>
                                         ) : hasPaidOnce ? (
                                             <div className="text-center">
-                                                <p className="text-slate-600 mb-4">You have premium features unlocked!</p>
-                                                <p className="text-sm text-slate-500">
+                                                <p className={`mb-4 ${
+                                                    isDark ? 'text-slate-200' : 'text-slate-600'
+                                                }`}>You have premium features unlocked!</p>
+                                                <p className={`text-sm ${
+                                                    isDark ? 'text-slate-300' : 'text-slate-500'
+                                                }`}>
                                                     Purchase more credits to continue using the service.
                                                 </p>
                                             </div>
