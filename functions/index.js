@@ -318,8 +318,8 @@ async function handlePaymentSuccess(session) {
     try {
       // First, check if the document exists and log its current state
       const beforeDoc = await userRef.get();
-      console.log('Before update - Document exists:', beforeDoc.exists());
-      if (beforeDoc.exists()) {
+      console.log('Before update - Document exists:', beforeDoc.exists);
+      if (beforeDoc.exists) {
         console.log('Before update - Current data:', beforeDoc.data());
       }
       
