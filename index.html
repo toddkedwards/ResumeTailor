@@ -76,6 +76,9 @@
     <!-- Mammoth.js for DOCX parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     
+    <!-- jsPDF for better PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -573,6 +576,29 @@
             );
         }
         
+        // Loading Skeleton Component
+        function LoadingSkeleton({ isDark = false }) {
+            return (
+                <div className={`animate-pulse space-y-4 ${isDark ? 'bg-slate-800' : 'bg-white'} rounded-2xl border p-6 mb-10 ${
+                    isDark ? 'border-slate-700' : 'border-slate-200'
+                }`}>
+                    <div className={`h-8 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded w-1/3 mb-4`}></div>
+                    <div className="space-y-3">
+                        <div className={`h-4 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded w-full`}></div>
+                        <div className={`h-4 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded w-5/6`}></div>
+                        <div className={`h-4 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded w-4/6`}></div>
+                        <div className={`h-4 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded w-full`}></div>
+                        <div className={`h-4 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded w-3/4`}></div>
+                    </div>
+                    <div className="mt-6 grid grid-cols-3 gap-4">
+                        <div className={`h-20 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded-xl`}></div>
+                        <div className={`h-20 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded-xl`}></div>
+                        <div className={`h-20 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded-xl`}></div>
+                    </div>
+                </div>
+            );
+        }
+        
         function App() {
             const [jobDescription, setJobDescription] = useState('');
             const [resumeSection, setResumeSection] = useState('');
@@ -612,6 +638,12 @@
                 return saved === 'dark';
             });
             const [showSavedResumes, setShowSavedResumes] = useState(false);
+            const [resumeName, setResumeName] = useState('');
+            const [savedResumesSearch, setSavedResumesSearch] = useState('');
+            const [recentJobDescriptions, setRecentJobDescriptions] = useState([]);
+            const [showRecentJDs, setShowRecentJDs] = useState(false);
+            const [estimatedTime, setEstimatedTime] = useState(null);
+            const [processingStartTime, setProcessingStartTime] = useState(null);
             
             // Ref to store resumes unsubscribe function for cleanup
             const resumesUnsubscribeRef = useRef(null);
@@ -849,6 +881,20 @@
                         }
                     }
                     
+                    // Ctrl/Cmd + S to save resume (when tailored resume exists)
+                    if ((e.ctrlKey || e.metaKey) && e.key === 's' && tailoredResume && user) {
+                        e.preventDefault();
+                        trackEvent('keyboard_shortcut_save');
+                        saveResume(tailoredResume, jobDescription, resumeSectionType);
+                    }
+                    
+                    // Ctrl/Cmd + K to clear all
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                        e.preventDefault();
+                        trackEvent('keyboard_shortcut_clear');
+                        clearAll();
+                    }
+                    
                     // Escape to close modals
                     if (e.key === 'Escape') {
                         if (showAuthModal && user) {
@@ -858,6 +904,10 @@
                             setPassword('');
                         } else if (showPricingModal) {
                             setShowPricingModal(false);
+                        } else if (showSavedResumes) {
+                            setShowSavedResumes(false);
+                        } else if (showRecentJDs) {
+                            setShowRecentJDs(false);
                         }
                     }
                     
@@ -873,7 +923,12 @@
 
                 window.addEventListener('keydown', handleKeyDown);
                 return () => window.removeEventListener('keydown', handleKeyDown);
-            }, [loading, jobDescription, resumeSection, user, showAuthModal, showPricingModal]);
+            }, [loading, jobDescription, resumeSection, user, tailoredResume, resumeSectionType, showAuthModal, showPricingModal, showSavedResumes, showRecentJDs]);
+            
+            // Load recent job descriptions on mount
+            useEffect(() => {
+                loadRecentJobDescriptions();
+            }, []);
             
             function loadSavedResumes() {
                 if (!db || !currentUserId || APP_ID === '__app_id') return null;
@@ -935,6 +990,8 @@
                 }
                 
                 const startTime = performance.now();
+                setProcessingStartTime(Date.now());
+                setEstimatedTime(null);
                 setLoading(true);
                 setError('');
                 setTailoredResume('');
@@ -942,6 +999,22 @@
                 setImprovementTips([]);
                 setChanges(null);
                 setShowComparison(false);
+                
+                // Save job description to recent list
+                saveRecentJobDescription(jobDescription);
+                
+                // Start estimated time counter
+                const startTimeForEstimate = Date.now();
+                setProcessingStartTime(startTimeForEstimate);
+                const timeInterval = setInterval(() => {
+                    const elapsed = (Date.now() - startTimeForEstimate) / 1000;
+                    // Estimate: typically 5-15 seconds, show progress
+                    const estimated = Math.max(5, Math.min(15, Math.ceil(elapsed * 1.2)));
+                    setEstimatedTime(estimated);
+                }, 500);
+                
+                // Store interval ID to clear later
+                window._timeInterval = timeInterval;
                 
                 try {
                     // Call Firebase Cloud Function for resume tailoring
@@ -1012,7 +1085,79 @@
                     console.error('Resume tailoring error:', err);
                 } finally {
                     setLoading(false);
+                    setEstimatedTime(null);
+                    setProcessingStartTime(null);
+                    if (window._timeInterval) {
+                        clearInterval(window._timeInterval);
+                        window._timeInterval = null;
+                    }
                 }
+            }
+            
+            // Helper function to count words
+            function countWords(text) {
+                return text.trim() ? text.trim().split(/\s+/).length : 0;
+            }
+            
+            // Helper function to count characters
+            function countCharacters(text) {
+                return text.length;
+            }
+            
+            // Clear all form fields
+            function clearAll() {
+                setJobDescription('');
+                setResumeSection('');
+                setTailoredResume('');
+                setKeywordMatches(null);
+                setImprovementTips([]);
+                setChanges(null);
+                setShowComparison(false);
+                setError('');
+                setResumeName('');
+                setUploadedResume('');
+                setUploadedFileName('');
+                trackEvent('form_cleared');
+                showToast('Form cleared', 'success');
+            }
+            
+            // Copy job description to clipboard
+            function copyJobDescription() {
+                if (!jobDescription.trim()) {
+                    showToast('No job description to copy', 'error');
+                    return;
+                }
+                navigator.clipboard.writeText(jobDescription).then(() => {
+                    showToast('Job description copied to clipboard!', 'success');
+                    trackEvent('job_description_copied');
+                }).catch(() => {
+                    showToast('Failed to copy job description', 'error');
+                });
+            }
+            
+            // Save recent job description to localStorage
+            function saveRecentJobDescription(jd) {
+                if (!jd || !jd.trim() || jd.length < 50) return; // Only save substantial JDs
+                const recent = JSON.parse(localStorage.getItem('resumeforge_recent_jds') || '[]');
+                // Remove if already exists
+                const filtered = recent.filter(r => r !== jd);
+                // Add to beginning
+                const updated = [jd, ...filtered].slice(0, 10); // Keep last 10
+                localStorage.setItem('resumeforge_recent_jds', JSON.stringify(updated));
+                setRecentJobDescriptions(updated);
+            }
+            
+            // Load recent job descriptions from localStorage
+            function loadRecentJobDescriptions() {
+                const recent = JSON.parse(localStorage.getItem('resumeforge_recent_jds') || '[]');
+                setRecentJobDescriptions(recent);
+            }
+            
+            // Use a recent job description
+            function useRecentJobDescription(jd) {
+                setJobDescription(jd);
+                setShowRecentJDs(false);
+                trackEvent('recent_jd_used');
             }
             
             async function saveResume(resumeText, jobDescription, sectionType) {
@@ -1021,19 +1166,25 @@
                     return;
                 }
                 
+                // Use resume name or generate default
+                const name = resumeName.trim() || `${sectionType || 'general'} - ${new Date().toLocaleDateString()}`;
+                
                 try {
                     const { collection, addDoc } = window.firebaseModules;
                     const resumesRef = collection(db, `artifacts/${APP_ID}/users/${currentUserId}/saved_resumes`);
                     
                     await addDoc(resumesRef, {
                         resume: resumeText,
+                        tailoredResume: resumeText, // For compatibility
+                        name: name,
                         createdAt: new Date().toISOString(),
                         jobDescription: jobDescription || '',
                         sectionType: sectionType || 'general'
                     });
                     
-                    trackEvent('resume_saved', { sectionType: sectionType || 'general' });
+                    trackEvent('resume_saved', { sectionType: sectionType || 'general', hasName: !!resumeName.trim() });
                     showToast('Resume saved successfully!', 'success');
+                    setResumeName(''); // Clear name after saving
                 } catch (err) {
                     const errorMessage = err.message || 'Unknown error occurred';
                     setError(`Error saving resume: ${errorMessage}`);
@@ -1357,32 +1508,80 @@
             }
             
             function exportToPDF(resumeText) {
-                // Simple PDF export using browser print
-                const printWindow = window.open('', '_blank');
-                
-                // Check if popup was blocked
-                if (!printWindow) {
-                    showToast('Popup blocked. Please allow popups for this site to export PDFs.', 'error');
-                    return;
+                try {
+                    // Use jsPDF if available, otherwise fallback to print
+                    if (typeof window.jspdf !== 'undefined' && window.jspdf.jsPDF) {
+                        const { jsPDF } = window.jspdf;
+                        const doc = new jsPDF();
+                        
+                        // Set font
+                        doc.setFont('helvetica');
+                        doc.setFontSize(16);
+                        doc.text('Tailored Resume', 20, 20);
+                        
+                        // Split text into lines and add to PDF
+                        doc.setFontSize(11);
+                        const lines = resumeText.split('\n');
+                        let y = 35;
+                        const pageHeight = doc.internal.pageSize.height;
+                        const margin = 20;
+                        const maxWidth = doc.internal.pageSize.width - (margin * 2);
+                        
+                        lines.forEach((line) => {
+                            if (!line.trim()) {
+                                y += 5; // Add spacing for empty lines
+                            } else {
+                                // Split long lines to fit page width
+                                const splitLines = doc.splitTextToSize(line, maxWidth);
+                                splitLines.forEach((splitLine) => {
+                                    if (y > pageHeight - margin) {
+                                        doc.addPage();
+                                        y = margin;
+                                    }
+                                    doc.text(splitLine, margin, y);
+                                    y += 7;
+                                });
+                            }
+                        });
+                        
+                        // Save the PDF
+                        const fileName = resumeName.trim() || 'tailored-resume';
+                        doc.save(`${fileName}.pdf`);
+                        trackEvent('resume_exported_pdf', { method: 'jspdf' });
+                        showToast('PDF exported successfully!', 'success');
+                    } else {
+                        // Fallback to print method
+                        const printWindow = window.open('', '_blank');
+                        
+                        if (!printWindow) {
+                            showToast('Popup blocked. Please allow popups for this site to export PDFs.', 'error');
+                            return;
+                        }
+                        
+                        printWindow.document.write(`
+                            <html>
+                                <head>
+                                    <title>Tailored Resume</title>
+                                    <style>
+                                        body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
+                                        h1 { color: #333; }
+                                    </style>
+                                </head>
+                                <body>
+                                    <h1>Tailored Resume</h1>
+                                    <p>${resumeText.replace(/\n/g, '<br>')}</p>
+                                </body>
+                            </html>
+                        `);
+                        printWindow.document.close();
+                        printWindow.print();
+                        trackEvent('resume_exported_pdf', { method: 'print' });
+                    }
+                } catch (error) {
+                    console.error('PDF export error:', error);
+                    showToast('Error exporting PDF. Please try again.', 'error');
+                    trackEvent('resume_export_pdf_error', { error: error.message });
                 }
-                
-                printWindow.document.write(`
-                    <html>
-                        <head>
-                            <title>Tailored Resume</title>
-                            <style>
-                                body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
-                                h1 { color: #333; }
-                            </style>
-                        </head>
-                        <body>
-                            <h1>Tailored Resume</h1>
-                            <p>${resumeText.replace(/\n/g, '<br>')}</p>
-                        </body>
-                    </html>
-                `);
-                printWindow.document.close();
-                printWindow.print();
             }
             
             function exportToWord(resumeText) {
@@ -2141,6 +2340,21 @@
                                         ✕
                                     </button>
                                 </div>
+                                {savedResumes.length > 0 && (
+                                    <div className="mb-4">
+                                        <input
+                                            type="text"
+                                            value={savedResumesSearch}
+                                            onChange={(e) => setSavedResumesSearch(e.target.value)}
+                                            placeholder="Search saved resumes..."
+                                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                isDark 
+                                                    ? 'border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-500' 
+                                                    : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400'
+                                            }`}
+                                        />
+                                    </div>
+                                )}
                                 {savedResumes.length === 0 ? (
                                     <p className={`text-center py-12 text-base ${
                                         isDark ? 'text-slate-400' : 'text-slate-500'
@@ -2149,7 +2363,17 @@
                                     </p>
                                 ) : (
                                     <div className="space-y-4">
-                                        {savedResumes.map((savedResume) => (
+                                        {savedResumes
+                                            .filter(resume => {
+                                                if (!savedResumesSearch.trim()) return true;
+                                                const search = savedResumesSearch.toLowerCase();
+                                                const name = (resume.name || '').toLowerCase();
+                                                const sectionType = (resume.sectionType || '').toLowerCase();
+                                                const jd = (resume.jobDescription || '').toLowerCase();
+                                                const content = (resume.tailoredResume || resume.resume || '').toLowerCase();
+                                                return name.includes(search) || sectionType.includes(search) || jd.includes(search) || content.includes(search);
+                                            })
+                                            .map((savedResume) => (
                                             <div 
                                                 key={savedResume.id} 
                                                 className={`border rounded-xl p-5 hover:shadow-md transition-all duration-300 ${
@@ -2159,11 +2383,20 @@
                                                 }`}
                                             >
                                                 <div className="flex justify-between items-start mb-3">
-                                                    <div className={`text-xs font-medium ${
-                                                        isDark ? 'text-slate-400' : 'text-slate-500'
-                                                    }`}>
-                                                        {savedResume.sectionType && `${savedResume.sectionType.charAt(0).toUpperCase() + savedResume.sectionType.slice(1)} Section`}
-                                                        {savedResume.jobDescription && ` • ${savedResume.jobDescription.substring(0, 30)}...`}
+                                                    <div>
+                                                        {savedResume.name && (
+                                                            <div className={`text-sm font-semibold mb-1 ${
+                                                                isDark ? 'text-white' : 'text-slate-900'
+                                                            }`}>
+                                                                {savedResume.name}
+                                                            </div>
+                                                        )}
+                                                        <div className={`text-xs font-medium ${
+                                                            isDark ? 'text-slate-400' : 'text-slate-500'
+                                                        }`}>
+                                                            {savedResume.sectionType && `${savedResume.sectionType.charAt(0).toUpperCase() + savedResume.sectionType.slice(1)} Section`}
+                                                            {savedResume.jobDescription && ` • ${savedResume.jobDescription.substring(0, 30)}...`}
+                                                        </div>
                                                     </div>
                                                     <div className="flex gap-2">
                                                         <button
@@ -2212,11 +2445,61 @@
                         }`}>
                             <div className="space-y-6 mb-6">
                                 <div>
-                                    <label className={`block text-sm font-semibold mb-2.5 tracking-wide ${
-                                        isDark ? 'text-slate-300' : 'text-slate-700'
-                                    }`}>
-                                        Job Description (JD) *
-                                    </label>
+                                    <div className="flex justify-between items-center mb-2.5">
+                                        <label className={`block text-sm font-semibold tracking-wide ${
+                                            isDark ? 'text-slate-300' : 'text-slate-700'
+                                        }`}>
+                                            Job Description (JD) *
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            {recentJobDescriptions.length > 0 && (
+                                                <div className="relative">
+                                                    <button
+                                                        onClick={() => setShowRecentJDs(!showRecentJDs)}
+                                                        className={`px-2 py-1 text-xs rounded-lg transition-colors ${
+                                                            isDark 
+                                                                ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' 
+                                                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                                        }`}
+                                                        title="Recent job descriptions"
+                                                    >
+                                                        📋 Recent
+                                                    </button>
+                                                    {showRecentJDs && (
+                                                        <div className={`absolute right-0 top-full mt-1 w-64 max-h-60 overflow-y-auto rounded-lg shadow-lg z-10 ${
+                                                            isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'
+                                                        }`}>
+                                                            {recentJobDescriptions.map((jd, idx) => (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => useRecentJobDescription(jd)}
+                                                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-violet-100 hover:text-violet-700 transition-colors ${
+                                                                        isDark 
+                                                                            ? 'text-slate-300 hover:bg-slate-700 hover:text-white' 
+                                                                            : 'text-slate-700'
+                                                                    }`}
+                                                                >
+                                                                    <div className="truncate">{jd.substring(0, 50)}...</div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <button
+                                                onClick={copyJobDescription}
+                                                disabled={!jobDescription.trim()}
+                                                className={`px-2 py-1 text-xs rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                    isDark 
+                                                        ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' 
+                                                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                                }`}
+                                                title="Copy job description"
+                                            >
+                                                📋 Copy
+                                            </button>
+                                        </div>
+                                    </div>
                                     <textarea
                                         value={jobDescription}
                                         onChange={(e) => setJobDescription(e.target.value)}
@@ -2230,6 +2513,12 @@
                                                 : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 hover:border-slate-400'
                                         }`}
                                     />
+                                    <div className={`flex justify-between items-center mt-1 text-xs ${
+                                        isDark ? 'text-slate-400' : 'text-slate-500'
+                                    }`}>
+                                        <span>{countWords(jobDescription)} words</span>
+                                        <span>{countCharacters(jobDescription)} characters</span>
+                                    </div>
                                 </div>
                                 
                                 <div>
@@ -2290,7 +2579,27 @@
                                                 : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 hover:border-slate-400'
                                         }`}
                                     />
+                                    <div className={`flex justify-between items-center mt-1 text-xs ${
+                                        isDark ? 'text-slate-400' : 'text-slate-500'
+                                    }`}>
+                                        <span>{countWords(resumeSection)} words</span>
+                                        <span>{countCharacters(resumeSection)} characters</span>
+                                    </div>
                                 </div>
+                            </div>
+                            
+                            <div className="flex gap-2 mb-4">
+                                <button
+                                    onClick={clearAll}
+                                    className={`flex-1 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                                        isDark 
+                                            ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                                            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                    }`}
+                                    title="Clear all fields (Ctrl/Cmd+K)"
+                                >
+                                    🗑️ Clear All
+                                </button>
                             </div>
                             
                             <button
@@ -2312,6 +2621,9 @@
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
                                         <span>Tailoring Resume...</span>
+                                        {estimatedTime && (
+                                            <span className="text-xs opacity-75 ml-2">(~{estimatedTime}s)</span>
+                                        )}
                                     </>
                                 ) : (
                                     'Tailor Resume'
@@ -2324,6 +2636,11 @@
                                 </div>
                             )}
                         </div>
+                        
+                        {/* Loading Skeleton */}
+                        {loading && !tailoredResume && (
+                            <LoadingSkeleton isDark={isDark} />
+                        )}
                         
                         {/* Tailored Resume Output */}
                         {tailoredResume && (
@@ -2387,12 +2704,27 @@
                                                 Copy
                                             </button>
                                             {user && (
-                                                <button
-                                                    onClick={() => saveResume(tailoredResume, jobDescription, resumeSectionType)}
-                                                    className="px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-semibold hover:bg-violet-700 transition-all"
-                                                >
-                                                    Save
-                                                </button>
+                                                <div className="flex gap-2 items-center">
+                                                    <input
+                                                        type="text"
+                                                        value={resumeName}
+                                                        onChange={(e) => setResumeName(e.target.value)}
+                                                        placeholder="Resume name (optional)"
+                                                        className={`px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none ${
+                                                            isDark 
+                                                                ? 'border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-500' 
+                                                                : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400'
+                                                        }`}
+                                                        style={{ width: '180px' }}
+                                                    />
+                                                    <button
+                                                        onClick={() => saveResume(tailoredResume, jobDescription, resumeSectionType)}
+                                                        className="px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-semibold hover:bg-violet-700 transition-all"
+                                                        title="Save resume (Ctrl/Cmd+S)"
+                                                    >
+                                                        Save
+                                                    </button>
+                                                </div>
                                             )}
                                             <button
                                                 onClick={() => exportToPDF(tailoredResume)}
