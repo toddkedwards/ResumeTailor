@@ -1378,9 +1378,21 @@
                         throw new Error(result.data?.error || 'Failed to generate cover letter');
                     }
                     
-                    setCoverLetter(result.data.coverLetter || '');
+                    const generatedCoverLetter = result.data.coverLetter || '';
+                    console.log('Cover letter generated:', {
+                        hasCoverLetter: !!generatedCoverLetter,
+                        length: generatedCoverLetter.length,
+                        highlights: result.data.keyHighlights?.length || 0
+                    });
+                    
+                    setCoverLetter(generatedCoverLetter);
                     setCoverLetterHighlights(result.data.keyHighlights || []);
                     setShowCoverLetter(true);
+                    
+                    console.log('Cover letter state set:', {
+                        showCoverLetter: true,
+                        coverLetterLength: generatedCoverLetter.length
+                    });
                     
                     // Increment usage
                     await incrementUsage();
