@@ -3620,6 +3620,248 @@
                         </div>
                     )}
                     
+                    {/* Comprehensive Dashboard Modal */}
+                    {showDashboard && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                            <div className={`rounded-2xl shadow-xl max-w-5xl w-full p-8 animate-fade-in max-h-[90vh] overflow-y-auto ${
+                                isDark 
+                                    ? 'bg-slate-800 border border-slate-700' 
+                                    : 'bg-white'
+                            }`}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className={`text-3xl font-bold ${
+                                        isDark ? 'text-white' : 'text-slate-900'
+                                    }`}>
+                                        Dashboard & Analytics
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowDashboard(false)}
+                                        className={isDark ? 'text-slate-300 hover:text-white' : 'text-slate-400 hover:text-slate-600'}
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                
+                                {statsLoading ? (
+                                    <div className="flex items-center justify-center py-12">
+                                        <div className="animate-spin-slow h-8 w-8 border-4 border-violet-200 border-t-violet-600 rounded-full"></div>
+                                    </div>
+                                ) : userStats ? (
+                                    <div className="space-y-6">
+                                        {/* Key Metrics Grid */}
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                            <div className={`rounded-xl p-6 border ${
+                                                isDark 
+                                                    ? 'bg-gradient-to-br from-violet-900/30 to-purple-900/30 border-violet-700' 
+                                                    : 'bg-gradient-to-br from-violet-50 to-purple-50 border-violet-200'
+                                            }`}>
+                                                <div className={`text-sm font-semibold mb-2 ${
+                                                    isDark ? 'text-violet-300' : 'text-violet-600'
+                                                }`}>Total Generations</div>
+                                                <div className={`text-4xl font-bold ${
+                                                    isDark ? 'text-white' : 'text-slate-900'
+                                                }`}>{userStats.totalGenerations}</div>
+                                                <div className={`text-xs mt-1 ${
+                                                    isDark ? 'text-slate-400' : 'text-slate-600'
+                                                }`}>Resumes tailored</div>
+                                            </div>
+                                            
+                                            <div className={`rounded-xl p-6 border ${
+                                                isDark 
+                                                    ? 'bg-gradient-to-br from-emerald-900/30 to-green-900/30 border-emerald-700' 
+                                                    : 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200'
+                                            }`}>
+                                                <div className={`text-sm font-semibold mb-2 ${
+                                                    isDark ? 'text-emerald-300' : 'text-emerald-600'
+                                                }`}>Saved Resumes</div>
+                                                <div className={`text-4xl font-bold ${
+                                                    isDark ? 'text-white' : 'text-slate-900'
+                                                }`}>{userStats.savedResumes}</div>
+                                                <div className={`text-xs mt-1 ${
+                                                    isDark ? 'text-slate-400' : 'text-slate-600'
+                                                }`}>In your library</div>
+                                            </div>
+                                            
+                                            <div className={`rounded-xl p-6 border ${
+                                                isDark 
+                                                    ? 'bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border-blue-700' 
+                                                    : 'bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200'
+                                            }`}>
+                                                <div className={`text-sm font-semibold mb-2 ${
+                                                    isDark ? 'text-blue-300' : 'text-blue-600'
+                                                }`}>Credits Used</div>
+                                                <div className={`text-4xl font-bold ${
+                                                    isDark ? 'text-white' : 'text-slate-900'
+                                                }`}>{Math.max(0, userStats.creditsUsed)}</div>
+                                                <div className={`text-xs mt-1 ${
+                                                    isDark ? 'text-slate-400' : 'text-slate-600'
+                                                }`}>Total spent</div>
+                                            </div>
+                                            
+                                            <div className={`rounded-xl p-6 border ${
+                                                isDark 
+                                                    ? 'bg-gradient-to-br from-amber-900/30 to-orange-900/30 border-amber-700' 
+                                                    : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200'
+                                            }`}>
+                                                <div className={`text-sm font-semibold mb-2 ${
+                                                    isDark ? 'text-amber-300' : 'text-amber-600'
+                                                }`}>Credits Remaining</div>
+                                                <div className={`text-4xl font-bold ${
+                                                    isDark ? 'text-white' : 'text-slate-900'
+                                                }`}>{userStats.creditsRemaining}</div>
+                                                <div className={`text-xs mt-1 ${
+                                                    isDark ? 'text-slate-400' : 'text-slate-600'
+                                                }`}>Available now</div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Activity Summary */}
+                                        <div className={`rounded-xl p-6 border ${
+                                            isDark 
+                                                ? 'bg-slate-700/50 border-slate-600' 
+                                                : 'bg-slate-50 border-slate-200'
+                                        }`}>
+                                            <h3 className={`text-xl font-bold mb-4 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Activity Summary</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <div className={`text-sm mb-1 ${
+                                                        isDark ? 'text-slate-400' : 'text-slate-600'
+                                                    }`}>Account Created</div>
+                                                    <div className={`font-semibold ${
+                                                        isDark ? 'text-white' : 'text-slate-900'
+                                                    }`}>{userStats.accountCreated}</div>
+                                                </div>
+                                                <div>
+                                                    <div className={`text-sm mb-1 ${
+                                                        isDark ? 'text-slate-400' : 'text-slate-600'
+                                                    }`}>Last Generation</div>
+                                                    <div className={`font-semibold ${
+                                                        isDark ? 'text-white' : 'text-slate-900'
+                                                    }`}>{userStats.lastGeneration}</div>
+                                                </div>
+                                                <div>
+                                                    <div className={`text-sm mb-1 ${
+                                                        isDark ? 'text-slate-400' : 'text-slate-600'
+                                                    }`}>Account Status</div>
+                                                    <div className={`font-semibold ${
+                                                        userStats.hasPaidOnce ? 'text-violet-600' : (isDark ? 'text-slate-300' : 'text-slate-700')
+                                                    }`}>
+                                                        {userStats.hasPaidOnce ? 'Premium User' : 'Free User'}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className={`text-sm mb-1 ${
+                                                        isDark ? 'text-slate-400' : 'text-slate-600'
+                                                    }`}>Average per Generation</div>
+                                                    <div className={`font-semibold ${
+                                                        isDark ? 'text-white' : 'text-slate-900'
+                                                    }`}>
+                                                        {userStats.totalGenerations > 0 
+                                                            ? (userStats.creditsUsed / userStats.totalGenerations).toFixed(1) 
+                                                            : '0'} credits
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Insights & Recommendations */}
+                                        <div className={`rounded-xl p-6 border ${
+                                            isDark 
+                                                ? 'bg-gradient-to-br from-violet-900/20 to-purple-900/20 border-violet-700' 
+                                                : 'bg-gradient-to-br from-violet-50 to-purple-50 border-violet-200'
+                                        }`}>
+                                            <h3 className={`text-xl font-bold mb-4 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>💡 Insights & Recommendations</h3>
+                                            <ul className="space-y-3">
+                                                {userStats.totalGenerations === 0 && (
+                                                    <li className={`flex items-start gap-2 ${
+                                                        isDark ? 'text-slate-300' : 'text-slate-700'
+                                                    }`}>
+                                                        <span>🎯</span>
+                                                        <span>Start tailoring your resume to see your analytics and insights here!</span>
+                                                    </li>
+                                                )}
+                                                {userStats.savedResumes === 0 && userStats.totalGenerations > 0 && (
+                                                    <li className={`flex items-start gap-2 ${
+                                                        isDark ? 'text-slate-300' : 'text-slate-700'
+                                                    }`}>
+                                                        <span>💾</span>
+                                                        <span>Save your tailored resumes to build a library of optimized versions for different job applications.</span>
+                                                    </li>
+                                                )}
+                                                {userStats.creditsRemaining < 5 && userStats.creditsRemaining > 0 && (
+                                                    <li className={`flex items-start gap-2 ${
+                                                        isDark ? 'text-slate-300' : 'text-slate-700'
+                                                    }`}>
+                                                        <span>💰</span>
+                                                        <span>You're running low on credits. Consider purchasing more to continue tailoring resumes.</span>
+                                                    </li>
+                                                )}
+                                                {userStats.totalGenerations >= 10 && (
+                                                    <li className={`flex items-start gap-2 ${
+                                                        isDark ? 'text-slate-300' : 'text-slate-700'
+                                                    }`}>
+                                                        <span>⭐</span>
+                                                        <span>You're a power user! Keep tailoring resumes for different job descriptions to maximize your chances.</span>
+                                                    </li>
+                                                )}
+                                                {!userStats.hasPaidOnce && (
+                                                    <li className={`flex items-start gap-2 ${
+                                                        isDark ? 'text-slate-300' : 'text-slate-700'
+                                                    }`}>
+                                                        <span>🚀</span>
+                                                        <span>Upgrade to premium to unlock advanced features and priority support.</span>
+                                                    </li>
+                                                )}
+                                            </ul>
+                                        </div>
+                                        
+                                        {/* Quick Actions */}
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => {
+                                                    setShowDashboard(false);
+                                                    setShowPricingModal(true);
+                                                }}
+                                                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-colors ${
+                                                    isDark 
+                                                        ? 'bg-violet-600 text-white hover:bg-violet-700' 
+                                                        : 'bg-violet-600 text-white hover:bg-violet-700'
+                                                }`}
+                                            >
+                                                Buy More Credits
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setShowDashboard(false);
+                                                    setShowSavedResumes(true);
+                                                }}
+                                                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-colors ${
+                                                    isDark 
+                                                        ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                                                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                                }`}
+                                            >
+                                                View Saved Resumes
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className={`text-center py-12 ${
+                                        isDark ? 'text-slate-400' : 'text-slate-500'
+                                    }`}>
+                                        No analytics data available yet. Start tailoring resumes to see your dashboard!
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    
                     {/* Authentication Modal */}
                     {showAuthModal && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
