@@ -17,8 +17,8 @@ try {
   console.warn('Stripe not configured:', error.message);
 }
 
-// Get app ID from config, default to 'resumeforge-v1' for ResumeForge
-const APP_ID = functions.config().app?.id || 'resumeforge-v1';
+// Get app ID from config, default to 'resume-tailor-v1' to match frontend
+const APP_ID = functions.config().app?.id || 'resume-tailor-v1';
 
 /**
  * Create Stripe Checkout Session
@@ -308,33 +308,49 @@ async function handlePaymentSuccess(session) {
   const creditsToAdd = parseInt(session.metadata?.creditsToAdd || '5', 10);
   const userRef = admin.firestore().doc(`artifacts/${APP_ID}/users/${userId}`);
   
-  console.log('Adding credits:', {
-    userId,
-    creditsToAdd,
-    appId: APP_ID,
-    userPath: `artifacts/${APP_ID}/users/${userId}`
-  });
-  
-  try {
-    // Use transaction to prevent race conditions
-    await admin.firestore().runTransaction(async (transaction) => {
-      const doc = await transaction.get(userRef);
-      const existingCredits = doc.exists() ? (doc.data().credits || 0) : 0;
-      const newCredits = existingCredits + creditsToAdd;
+    console.log('Adding credits:', {
+      userId,
+      creditsToAdd,
+      appId: APP_ID,
+      userPath: `artifacts/${APP_ID}/users/${userId}`
+    });
+    
+    try {
+      // First, check if the document exists and log its current state
+      const beforeDoc = await userRef.get();
+      console.log('Before update - Document exists:', beforeDoc.exists());
+      if (beforeDoc.exists()) {
+        console.log('Before update - Current data:', beforeDoc.data());
+      }
       
-      console.log('Transaction: updating credits', {
-        existingCredits,
-        creditsToAdd,
-        newCredits
+      // Use transaction to prevent race conditions
+      const result = await admin.firestore().runTransaction(async (transaction) => {
+        const doc = await transaction.get(userRef);
+        const existingCredits = doc.exists() ? (doc.data().credits || 0) : 0;
+        const newCredits = existingCredits + creditsToAdd;
+        
+        console.log('Transaction: updating credits', {
+          docExists: doc.exists(),
+          existingCredits,
+          creditsToAdd,
+          newCredits
+        });
+        
+        const updateData = {
+          credits: newCredits,
+          hasPaidOnce: true,
+          lastCreditPurchase: admin.firestore.FieldValue.serverTimestamp(),
+          stripeCustomerId: session.customer,
+        };
+        
+        console.log('Transaction: setting data', updateData);
+        
+        transaction.set(userRef, updateData, { merge: true });
+        
+        return { success: true, newCredits };
       });
       
-      transaction.set(userRef, {
-        credits: newCredits,
-        hasPaidOnce: true,
-        lastCreditPurchase: admin.firestore.FieldValue.serverTimestamp(),
-        stripeCustomerId: session.customer,
-      }, { merge: true });
-    });
+      console.log('Transaction completed:', result);
 
     // Verify the update
     const verifyDoc = await userRef.get();
@@ -350,9 +366,22 @@ async function handlePaymentSuccess(session) {
   } catch (error) {
     console.error(`❌ Error adding credits to user ${userId}:`, {
       error: error.message,
-      stack: error.stack,
-      code: error.code
+      errorName: error.name,
+      errorCode: error.code,
+      errorStack: error.stack,
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
     });
+    
+    // Log the full error object
+    console.error('Full error object:', error);
+    
+    // Check if it's a Firestore permission error
+    if (error.code === 7 || error.message?.includes('permission') || error.message?.includes('PERMISSION_DENIED')) {
+      console.error('⚠️ PERMISSION DENIED - Check Firestore security rules!');
+      console.error('User path:', `artifacts/${APP_ID}/users/${userId}`);
+      console.error('APP_ID:', APP_ID);
+    }
+    
     throw error; // Re-throw so webhook can retry
   }
 }
