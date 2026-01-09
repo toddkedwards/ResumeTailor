@@ -1136,6 +1136,14 @@
             }, []);
             
             useEffect(() => {
+                // Fetch stats when dashboard opens
+                if (showDashboard && user && db && currentUserId) {
+                    console.log('Dashboard opened, fetching stats...');
+                    fetchUserStats();
+                }
+            }, [showDashboard, user, db, currentUserId]);
+            
+            useEffect(() => {
                 // Refresh usage limit periodically
                 if (firebaseReady && currentUserId) {
                     const interval = setInterval(async () => {
@@ -1978,18 +1986,27 @@
             
             // Store analytics data (ATS scores, keywords) for trends
             async function storeAnalyticsData(data) {
-                if (!db || !currentUserId || APP_ID === '__app_id') return;
+                if (!db || !currentUserId || APP_ID === '__app_id') {
+                    console.warn('storeAnalyticsData: Missing requirements', { db: !!db, currentUserId, APP_ID });
+                    return;
+                }
                 
                 try {
                     const { collection, addDoc, serverTimestamp } = window.firebaseModules;
                     const analyticsRef = collection(db, `artifacts/${APP_ID}/users/${currentUserId}/analytics`);
-                    await addDoc(analyticsRef, {
+                    const docRef = await addDoc(analyticsRef, {
                         ...data,
                         timestamp: serverTimestamp()
                     });
+                    console.log('Analytics data stored successfully:', docRef.id);
                 } catch (error) {
                     console.error('Error storing analytics data:', error);
-                    // Don't throw - analytics is non-critical
+                    console.error('Error details:', {
+                        message: error.message,
+                        code: error.code,
+                        stack: error.stack
+                    });
+                    // Don't throw - analytics is non-critical, but log for debugging
                 }
             }
             
