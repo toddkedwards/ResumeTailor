@@ -439,7 +439,7 @@ exports.verifyPaymentAndAddCredits = functions.https.onCall(async (data, context
     // Check if credits were already added (prevent double-adding)
     const userRef = admin.firestore().doc(`artifacts/${APP_ID}/users/${userId}`);
     const userDoc = await userRef.get();
-    const lastPurchase = userDoc.exists() ? userDoc.data().lastCreditPurchase : null;
+    const lastPurchase = userDoc.exists ? userDoc.data().lastCreditPurchase : null;
     
     // If purchase was very recent (within last minute), might be duplicate
     // But we'll still process it to be safe (transaction will handle it)
