@@ -123,62 +123,82 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
  * Handles Stripe webhook events for subscription updates
  */
 exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
-  console.log('Webhook received:', {
-    method: req.method,
-    headers: Object.keys(req.headers),
-    hasBody: !!req.body,
-    bodyType: typeof req.body
-  });
-
-  if (!stripe) {
-    console.error('Stripe is not configured');
-    return res.status(500).json({ error: 'Stripe is not configured' });
-  }
-
-  const sig = req.headers['stripe-signature'];
-  const webhookSecret = functions.config().stripe?.webhook_secret;
-
-  if (!webhookSecret) {
-    console.error('Webhook secret not configured');
-    return res.status(500).json({ error: 'Webhook secret not configured' });
-  }
-
-  let event;
+  console.log('=== WEBHOOK RECEIVED ===');
+  console.log('Method:', req.method);
+  console.log('Headers:', JSON.stringify(req.headers));
+  console.log('Has body:', !!req.body);
+  console.log('Body type:', typeof req.body);
+  console.log('Raw body type:', typeof req.rawBody);
+  console.log('Raw body length:', req.rawBody?.length || 0);
 
   try {
-    // For Firebase Functions, we need to use req.rawBody if available, otherwise req.body
-    const rawBody = req.rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
-    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-    console.log('Webhook event verified:', event.type, event.id);
-  } catch (err) {
-    console.error('Webhook signature verification failed:', {
-      error: err.message,
-      hasSignature: !!sig,
-      hasSecret: !!webhookSecret,
-      bodyLength: req.rawBody?.length || req.body?.length || 0
-    });
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
+    if (!stripe) {
+      console.error('❌ Stripe is not configured');
+      return res.status(500).json({ error: 'Stripe is not configured' });
+    }
+    console.log('✅ Stripe is configured');
 
-  // Handle the event with proper error handling
-  try {
-    switch (event.type) {
-      case 'checkout.session.completed':
-        const session = event.data.object;
-        console.log('Processing checkout.session.completed:', {
-          sessionId: session.id,
-          paymentStatus: session.payment_status,
-          userId: session.metadata?.firebaseUserId,
-          creditsToAdd: session.metadata?.creditsToAdd
-        });
-        
-        if (session.payment_status === 'paid') {
-          await handlePaymentSuccess(session);
-          console.log('Successfully processed payment for session:', session.id);
-        } else {
-          console.warn('Session not paid yet:', session.payment_status);
-        }
-        break;
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = functions.config().stripe?.webhook_secret;
+
+    console.log('Signature present:', !!sig);
+    console.log('Webhook secret present:', !!webhookSecret);
+
+    if (!webhookSecret) {
+      console.error('❌ Webhook secret not configured');
+      return res.status(500).json({ error: 'Webhook secret not configured' });
+    }
+
+    if (!sig) {
+      console.error('❌ Stripe signature header missing');
+      return res.status(400).json({ error: 'Stripe signature header missing' });
+    }
+
+    let event;
+
+    try {
+      // For Firebase Functions, we need to use req.rawBody if available, otherwise req.body
+      const rawBody = req.rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+      console.log('Attempting to construct event with rawBody length:', rawBody.length);
+      
+      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+      console.log('✅ Webhook event verified:', event.type, event.id);
+    } catch (err) {
+      console.error('❌ Webhook signature verification failed:', {
+        error: err.message,
+        errorStack: err.stack,
+        hasSignature: !!sig,
+        signatureLength: sig?.length || 0,
+        hasSecret: !!webhookSecret,
+        secretLength: webhookSecret?.length || 0,
+        bodyLength: req.rawBody?.length || req.body?.length || 0
+      });
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event with proper error handling
+    console.log('Processing event type:', event.type);
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          const session = event.data.object;
+          console.log('📦 Processing checkout.session.completed:', {
+            sessionId: session.id,
+            paymentStatus: session.payment_status,
+            userId: session.metadata?.firebaseUserId,
+            creditsToAdd: session.metadata?.creditsToAdd,
+            customer: session.customer,
+            fullMetadata: session.metadata
+          });
+          
+          if (session.payment_status === 'paid') {
+            console.log('✅ Payment is paid, calling handlePaymentSuccess...');
+            await handlePaymentSuccess(session);
+            console.log('✅ Successfully processed payment for session:', session.id);
+          } else {
+            console.warn('⚠️ Session not paid yet:', session.payment_status);
+          }
+          break;
       
       case 'payment_intent.succeeded':
         // Fallback: if checkout.session.completed didn't fire, handle payment_intent
@@ -227,22 +247,34 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
         }
         break;
 
-      // Subscription events no longer needed for one-time payments
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
-    }
+        // Subscription events no longer needed for one-time payments
+        default:
+          console.log(`⚠️ Unhandled event type: ${event.type}`);
+      }
 
-    res.json({ received: true });
-  } catch (error) {
-    console.error('Error processing webhook event:', {
-      error: error.message,
-      stack: error.stack,
-      eventType: event.type
+      console.log('✅ Event processed successfully, sending response');
+      res.json({ received: true });
+    } catch (error) {
+      console.error('❌ Error processing webhook event:', {
+        error: error.message,
+        stack: error.stack,
+        eventType: event?.type || 'unknown',
+        eventId: event?.id || 'unknown'
+      });
+      // Return 500 so Stripe knows to retry
+      res.status(500).json({ 
+        received: false, 
+        error: error.message 
+      });
+    }
+  } catch (outerError) {
+    console.error('❌ Outer error in webhook handler:', {
+      error: outerError.message,
+      stack: outerError.stack
     });
-    // Return 500 so Stripe knows to retry
     res.status(500).json({ 
       received: false, 
-      error: error.message 
+      error: outerError.message 
     });
   }
 });
