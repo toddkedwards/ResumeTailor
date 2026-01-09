@@ -647,6 +647,8 @@
             const [savedResumesSearch, setSavedResumesSearch] = useState('');
             const [recentJobDescriptions, setRecentJobDescriptions] = useState([]);
             const [showRecentJDs, setShowRecentJDs] = useState(false);
+            const [recentResumes, setRecentResumes] = useState([]);
+            const [showRecentResumes, setShowRecentResumes] = useState(false);
             const [estimatedTime, setEstimatedTime] = useState(null);
             const [processingStartTime, setProcessingStartTime] = useState(null);
             const [selectedIndustry, setSelectedIndustry] = useState('');
@@ -1240,9 +1242,10 @@
                 return () => window.removeEventListener('keydown', handleKeyDown);
             }, [loading, jobDescription, resumeSection, user, tailoredResume, resumeSectionType, showAuthModal, showPricingModal, showSavedResumes, showRecentJDs]);
             
-            // Load recent job descriptions on mount
+            // Load recent job descriptions and resumes on mount
             useEffect(() => {
                 loadRecentJobDescriptions();
+                loadRecentResumes();
             }, []);
             
             // Generate Interview Questions
@@ -1659,6 +1662,41 @@
                 setJobDescription(jd);
                 setShowRecentJDs(false);
                 trackEvent('recent_jd_used');
+            }
+            
+            // Save recent resume to localStorage
+            function saveRecentResume(resumeText, fileName = '') {
+                if (!resumeText || !resumeText.trim() || resumeText.length < 50) return; // Only save substantial resumes
+                
+                const resumeData = {
+                    text: resumeText.trim(),
+                    fileName: fileName || 'Resume',
+                    timestamp: Date.now()
+                };
+                
+                const recent = JSON.parse(localStorage.getItem('resumeforge_recent_resumes') || '[]');
+                // Remove if already exists (by text content)
+                const filtered = recent.filter(r => r.text !== resumeText.trim());
+                // Add to beginning
+                const updated = [resumeData, ...filtered].slice(0, 10); // Keep last 10
+                localStorage.setItem('resumeforge_recent_resumes', JSON.stringify(updated));
+                setRecentResumes(updated);
+            }
+            
+            // Load recent resumes from localStorage
+            function loadRecentResumes() {
+                const recent = JSON.parse(localStorage.getItem('resumeforge_recent_resumes') || '[]');
+                setRecentResumes(recent);
+            }
+            
+            // Use a recent resume
+            function useRecentResume(resumeData) {
+                setResumeSection(resumeData.text);
+                setUploadedResume(resumeData.text);
+                setUploadedFileName(resumeData.fileName);
+                setShowRecentResumes(false);
+                trackEvent('recent_resume_used');
+                showToast('Resume loaded from recent uploads', 'success');
             }
             
             // Calculate ATS score based on keyword matching and resume quality
@@ -2652,6 +2690,7 @@
                             const text = e.target.result;
                             setResumeSection(text);
                             setUploadedResume(text);
+                            saveRecentResume(text, file.name);
                             showToast('Resume uploaded successfully!', 'success');
                             setLoading(false);
                         };
@@ -2678,6 +2717,7 @@
                         
                         setResumeSection(fullText.trim());
                         setUploadedResume(fullText.trim());
+                        saveRecentResume(fullText.trim(), file.name);
                         showToast('PDF uploaded and parsed successfully!', 'success');
                         setLoading(false);
                     } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
@@ -2694,6 +2734,7 @@
                         
                         setResumeSection(text);
                         setUploadedResume(text);
+                        saveRecentResume(text, file.name);
                         showToast('DOCX uploaded and parsed successfully!', 'success');
                         setLoading(false);
                     } else if (file.type === 'application/msword') {
@@ -4291,20 +4332,64 @@
                                         }`}>
                                         Current Resume Section *
                                     </label>
-                                        <label className={`cursor-pointer px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                                            isDark 
-                                                ? 'bg-slate-700 text-white hover:bg-slate-600' 
-                                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                        }`}>
-                                            <input
-                                                type="file"
-                                                accept=".pdf,.doc,.docx,.txt"
-                                                onChange={handleResumeUpload}
-                                                className="hidden"
-                                                id="resume-upload"
-                                            />
-                                            📄 Upload Resume
-                                        </label>
+                                        <div className="flex gap-2 items-center">
+                                            <label className={`cursor-pointer px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                                                isDark 
+                                                    ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                            }`}>
+                                                <input
+                                                    type="file"
+                                                    accept=".pdf,.doc,.docx,.txt"
+                                                    onChange={handleResumeUpload}
+                                                    className="hidden"
+                                                    id="resume-upload"
+                                                />
+                                                📄 Upload Resume
+                                            </label>
+                                            {recentResumes.length > 0 && (
+                                                <div className="relative">
+                                                    <button
+                                                        onClick={() => setShowRecentResumes(!showRecentResumes)}
+                                                        className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                                                            isDark 
+                                                                ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                                                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                                        }`}
+                                                    >
+                                                        📋 Recent ({recentResumes.length})
+                                                    </button>
+                                                    {showRecentResumes && (
+                                                        <div className={`absolute top-full right-0 mt-1 w-64 rounded-lg shadow-lg border z-50 max-h-64 overflow-y-auto ${
+                                                            isDark 
+                                                                ? 'bg-slate-800 border-slate-700' 
+                                                                : 'bg-white border-slate-200'
+                                                        }`}>
+                                                            {recentResumes.map((resume, idx) => (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => useRecentResume(resume)}
+                                                                    className={`w-full text-left px-4 py-2 hover:bg-slate-100 transition-colors border-b ${
+                                                                        isDark 
+                                                                            ? 'hover:bg-slate-700 text-slate-300 border-slate-700' 
+                                                                            : 'hover:bg-slate-100 text-slate-700 border-slate-200'
+                                                                    }`}
+                                                                >
+                                                                    <div className={`font-medium text-sm truncate ${
+                                                                        isDark ? 'text-white' : 'text-slate-900'
+                                                                    }`}>{resume.fileName}</div>
+                                                                    <div className={`text-xs truncate mt-1 ${
+                                                                        isDark ? 'text-slate-400' : 'text-slate-500'
+                                                                    }`}>
+                                                                        {resume.text.substring(0, 50)}...
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     {uploadedFileName && (
                                         <div className={`mb-2 text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
