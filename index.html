@@ -1537,10 +1537,16 @@
                     
                     // Store ATS score and keyword data for analytics
                     if (calculatedScore !== null && result.data.keywordMatches) {
+                        console.log('Storing analytics data:', { atsScore: calculatedScore, hasKeywordMatches: !!result.data.keywordMatches });
                         await storeAnalyticsData({
                             atsScore: calculatedScore,
-                            keywordMatches: result.data.keywordMatches,
-                            timestamp: new Date()
+                            keywordMatches: result.data.keywordMatches
+                            // timestamp will be set by serverTimestamp() in storeAnalyticsData
+                        });
+                    } else {
+                        console.warn('Not storing analytics - missing data:', { 
+                            hasScore: calculatedScore !== null, 
+                            hasKeywordMatches: !!result.data.keywordMatches 
                         });
                     }
                     
