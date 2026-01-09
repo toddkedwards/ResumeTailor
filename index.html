@@ -623,6 +623,7 @@
             const [showStats, setShowStats] = useState(false);
             const [userStats, setUserStats] = useState(null);
             const [statsLoading, setStatsLoading] = useState(false);
+            const [analyticsHistory, setAnalyticsHistory] = useState([]);
             const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -1526,6 +1527,15 @@
                     // Increment usage counter
                     await incrementUsage();
                     
+                    // Store ATS score and keyword data for analytics
+                    if (calculatedScore !== null && result.data.keywordMatches) {
+                        await storeAnalyticsData({
+                            atsScore: calculatedScore,
+                            keywordMatches: result.data.keywordMatches,
+                            timestamp: new Date()
+                        });
+                    }
+                    
                     // Refresh usage limit
                     const newLimit = await checkUsageLimit();
                     setUsageLimit(newLimit);
@@ -1966,6 +1976,51 @@
                 }
             }
             
+            // Store analytics data (ATS scores, keywords) for trends
+            async function storeAnalyticsData(data) {
+                if (!db || !currentUserId || APP_ID === '__app_id') return;
+                
+                try {
+                    const { collection, addDoc, serverTimestamp } = window.firebaseModules;
+                    const analyticsRef = collection(db, `artifacts/${APP_ID}/users/${currentUserId}/analytics`);
+                    await addDoc(analyticsRef, {
+                        ...data,
+                        timestamp: serverTimestamp()
+                    });
+                } catch (error) {
+                    console.error('Error storing analytics data:', error);
+                    // Don't throw - analytics is non-critical
+                }
+            }
+            
+            // Fetch analytics history for trends
+            async function fetchAnalyticsHistory() {
+                if (!db || !currentUserId || APP_ID === '__app_id') return [];
+                
+                try {
+                    const { collection, query, orderBy, limit, getDocs } = window.firebaseModules;
+                    const analyticsRef = collection(db, `artifacts/${APP_ID}/users/${currentUserId}/analytics`);
+                    const q = query(analyticsRef, orderBy('timestamp', 'desc'), limit(30)); // Last 30 generations
+                    const snapshot = await getDocs(q);
+                    
+                    const history = [];
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        history.push({
+                            id: doc.id,
+                            atsScore: data.atsScore || null,
+                            keywordMatches: data.keywordMatches || null,
+                            timestamp: data.timestamp?.toMillis ? data.timestamp.toMillis() : (data.timestamp?.seconds ? data.timestamp.seconds * 1000 : Date.now())
+                        });
+                    });
+                    
+                    return history.sort((a, b) => a.timestamp - b.timestamp); // Sort chronologically
+                } catch (error) {
+                    console.error('Error fetching analytics history:', error);
+                    return [];
+                }
+            }
+            
             function copyResume(resumeText) {
                 navigator.clipboard.writeText(resumeText).then(() => {
                     trackEvent('resume_copied');
@@ -2182,6 +2237,10 @@
                     
                     console.log('fetchUserStats: Final stats object', stats);
                     setUserStats(stats);
+                    
+                    // Fetch analytics history for trends
+                    const history = await fetchAnalyticsHistory();
+                    setAnalyticsHistory(history);
                 } catch (error) {
                     console.error('Error fetching stats:', error);
                     console.error('Error details:', {
@@ -2372,30 +2431,30 @@
                         showToast('PDF exported successfully!', 'success');
                     } else {
                         // Fallback to print method
-                        const printWindow = window.open('', '_blank');
-                        
-                        if (!printWindow) {
-                            showToast('Popup blocked. Please allow popups for this site to export PDFs.', 'error');
-                            return;
-                        }
-                        
-                        printWindow.document.write(`
-                            <html>
-                                <head>
+                const printWindow = window.open('', '_blank');
+                
+                if (!printWindow) {
+                    showToast('Popup blocked. Please allow popups for this site to export PDFs.', 'error');
+                    return;
+                }
+                
+                printWindow.document.write(`
+                    <html>
+                        <head>
                                     <title>Tailored Resume</title>
-                                    <style>
-                                        body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
-                                        h1 { color: #333; }
-                                    </style>
-                                </head>
-                                <body>
+                            <style>
+                                body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
+                                h1 { color: #333; }
+                            </style>
+                        </head>
+                        <body>
                                     <h1>Tailored Resume</h1>
                                     <p>${resumeText.replace(/\n/g, '<br>')}</p>
-                                </body>
-                            </html>
-                        `);
-                        printWindow.document.close();
-                        printWindow.print();
+                        </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
                         trackEvent('resume_exported_pdf', { method: 'print' });
                     }
                 } catch (error) {
@@ -2980,7 +3039,7 @@
                         </div>
                     ) : (
                         /* Main App Content - Only show when logged in */
-                        <div id="main-content" className="max-w-6xl mx-auto animate-fade-in">
+                    <div id="main-content" className="max-w-6xl mx-auto animate-fade-in">
                         {/* Header with Account Info */}
                         <div className="flex justify-between items-center mb-6">
                             <div>
@@ -4015,8 +4074,8 @@
                                         <label className={`block text-sm font-semibold tracking-wide ${
                                             isDark ? 'text-slate-300' : 'text-slate-700'
                                         }`}>
-                                            Job Description (JD) *
-                                        </label>
+                                        Job Description (JD) *
+                                    </label>
                                         <div className="flex items-center gap-2">
                                             {recentJobDescriptions.length > 0 && (
                                                 <div className="relative">
@@ -4121,22 +4180,22 @@
                                             }`}>
                                                 Section Type
                                             </label>
-                                            <select
-                                                value={resumeSectionType}
-                                                onChange={(e) => setResumeSectionType(e.target.value)}
-                                                aria-label="Resume section type"
+                                        <select
+                                            value={resumeSectionType}
+                                            onChange={(e) => setResumeSectionType(e.target.value)}
+                                            aria-label="Resume section type"
                                                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none text-sm ${
                                                     isDark 
                                                         ? 'border-slate-600 bg-slate-900 text-slate-100' 
                                                         : 'border-slate-300 bg-white text-slate-900'
                                                 }`}
-                                            >
-                                                <option value="general">General/Summary</option>
-                                                <option value="experience">Experience</option>
-                                                <option value="education">Education</option>
-                                                <option value="skills">Skills</option>
-                                                <option value="summary">Professional Summary</option>
-                                            </select>
+                                        >
+                                            <option value="general">General/Summary</option>
+                                            <option value="experience">Experience</option>
+                                            <option value="education">Education</option>
+                                            <option value="skills">Skills</option>
+                                            <option value="summary">Professional Summary</option>
+                                        </select>
                                         </div>
                                         <div>
                                             <label className={`block text-xs font-medium mb-1 ${
@@ -4225,33 +4284,33 @@
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <button
-                                    onClick={() => {
-                                        trackEvent('resume_tailor_clicked', {
-                                            sectionType: resumeSectionType
-                                        });
-                                        generateTailoredResume();
-                                    }}
+                            <button
+                                onClick={() => {
+                                    trackEvent('resume_tailor_clicked', {
+                                        sectionType: resumeSectionType
+                                    });
+                                    generateTailoredResume();
+                                }}
                                     disabled={loading || coverLetterLoading || interviewQuestionsLoading || !jobDescription.trim() || !resumeSection.trim() || !user}
-                                    aria-label="Tailor resume to job description"
-                                    aria-busy={loading}
-                                    className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white py-3.5 px-6 rounded-xl font-semibold hover:from-violet-700 hover:to-purple-700 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
-                                >
-                                    {loading ? (
-                                        <>
-                                            <svg className="animate-spin-slow h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            <span>Tailoring Resume...</span>
+                                aria-label="Tailor resume to job description"
+                                aria-busy={loading}
+                                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white py-3.5 px-6 rounded-xl font-semibold hover:from-violet-700 hover:to-purple-700 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+                            >
+                                {loading ? (
+                                    <>
+                                        <svg className="animate-spin-slow h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span>Tailoring Resume...</span>
                                             {estimatedTime && (
                                                 <span className="text-xs opacity-75 ml-2">(~{estimatedTime}s)</span>
                                             )}
-                                        </>
-                                    ) : (
+                                    </>
+                                ) : (
                                         '📝 Tailor Resume'
-                                    )}
-                                </button>
+                                )}
+                            </button>
                                 <button
                                     onClick={() => {
                                         trackEvent('cover_letter_clicked');
@@ -4714,8 +4773,8 @@
                                                         title="Save resume (Ctrl/Cmd+S)"
                                                     >
                                                         Save
-                                                    </button>
-                                                </div>
+                                            </button>
+                                        </div>
                                             )}
                                             <button
                                                 onClick={() => exportToPDF(tailoredResume)}
@@ -4735,7 +4794,7 @@
                                                 </svg>
                                                 Export Word
                                             </button>
-                                        </div>
+                                    </div>
                                     </div>
                                     <div className={`rounded-xl p-6 border ${
                                         isDark 
@@ -4971,7 +5030,7 @@
                                 </div>
                             )}
                         </div>
-                        </div>
+                    </div>
                     )}
                     
                     {/* Authentication Modal */}
