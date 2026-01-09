@@ -644,6 +644,19 @@
             const [showRecentJDs, setShowRecentJDs] = useState(false);
             const [estimatedTime, setEstimatedTime] = useState(null);
             const [processingStartTime, setProcessingStartTime] = useState(null);
+            const [selectedIndustry, setSelectedIndustry] = useState('');
+            const [atsScore, setAtsScore] = useState(null);
+            const [showResumeBuilder, setShowResumeBuilder] = useState(false);
+            const [fullResume, setFullResume] = useState({
+                contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
+                summary: '',
+                experience: [],
+                education: [],
+                skills: [],
+                certifications: [],
+                projects: []
+            });
+            const [showDashboard, setShowDashboard] = useState(false);
             
             // Ref to store resumes unsubscribe function for cleanup
             const resumesUnsubscribeRef = useRef(null);
@@ -1028,7 +1041,8 @@
                     const result = await generateTailoredResumeFn({ 
                         jobDescription: jobDescription.trim(),
                         resumeSection: resumeSection.trim(),
-                        sectionType: resumeSectionType
+                        sectionType: resumeSectionType,
+                        industry: selectedIndustry
                     });
                     
                     if (!result.data || !result.data.success) {
@@ -1041,6 +1055,14 @@
                     setImprovementTips(result.data.improvementTips || []);
                     setChanges(result.data.changes || null);
                     setShowComparison(false); // Reset comparison view
+                    
+                    // Calculate ATS score
+                    const calculatedScore = calculateATSScore(
+                        result.data.keywordMatches,
+                        result.data.tailoredResume || resumeSection,
+                        jobDescription
+                    );
+                    setAtsScore(calculatedScore);
                     
                     // Track successful generation
                     const generationTime = performance.now() - startTime;
@@ -1159,6 +1181,62 @@
                 setShowRecentJDs(false);
                 trackEvent('recent_jd_used');
             }
+            
+            // Calculate ATS score based on keyword matching and resume quality
+            function calculateATSScore(keywordMatches, resumeText, jobDescription) {
+                if (!keywordMatches || !resumeText || !jobDescription) return null;
+                
+                let score = 0;
+                const maxScore = 100;
+                
+                // Keyword matching (40 points)
+                const matchPercentage = keywordMatches.matchPercentage || 0;
+                score += (matchPercentage / 100) * 40;
+                
+                // Keyword density (20 points)
+                const matchedKeywords = keywordMatches.matched || [];
+                const jobWords = jobDescription.toLowerCase().split(/\s+/);
+                const resumeWords = resumeText.toLowerCase().split(/\s+/);
+                const uniqueJobKeywords = [...new Set(jobWords.filter(w => w.length > 4))];
+                const foundKeywords = uniqueJobKeywords.filter(kw => 
+                    resumeWords.some(rw => rw.includes(kw.toLowerCase()))
+                );
+                const keywordDensity = uniqueJobKeywords.length > 0 
+                    ? (foundKeywords.length / uniqueJobKeywords.length) * 100 
+                    : 0;
+                score += (keywordDensity / 100) * 20;
+                
+                // Resume length and structure (20 points)
+                const wordCount = resumeText.split(/\s+/).length;
+                if (wordCount >= 50 && wordCount <= 500) score += 20;
+                else if (wordCount >= 30 && wordCount < 50) score += 15;
+                else if (wordCount > 500 && wordCount <= 800) score += 15;
+                else if (wordCount < 30) score += 5;
+                else score += 10;
+                
+                // Action verbs and achievements (10 points)
+                const actionVerbs = ['achieved', 'improved', 'increased', 'developed', 'managed', 'led', 'created', 'implemented', 'designed', 'optimized'];
+                const hasActionVerbs = actionVerbs.some(verb => 
+                    resumeText.toLowerCase().includes(verb)
+                );
+                score += hasActionVerbs ? 10 : 5;
+                
+                // Quantifiable results (10 points)
+                const hasNumbers = /\d+/.test(resumeText);
+                const hasPercentages = /%/.test(resumeText);
+                const hasMetrics = hasNumbers || hasPercentages;
+                score += hasMetrics ? 10 : 5;
+                
+                return Math.min(Math.round(score), maxScore);
+            }
+            
+            // Industry list for dropdown
+            const industries = [
+                '', 'Technology/Software', 'Healthcare', 'Finance/Banking', 'Education', 
+                'Marketing/Advertising', 'Sales', 'Engineering', 'Design/Creative', 
+                'Consulting', 'Manufacturing', 'Retail', 'Hospitality', 'Real Estate',
+                'Legal', 'Non-Profit', 'Government', 'Media/Entertainment', 'Other'
+            ];
             
             async function saveResume(resumeText, jobDescription, sectionType) {
                 if (!db || !currentUserId || APP_ID === '__app_id') {
@@ -1507,47 +1585,104 @@
                 }
             }
             
-            function exportToPDF(resumeText) {
+            function exportToPDF(resumeText, options = {}) {
                 try {
                     // Use jsPDF if available, otherwise fallback to print
                     if (typeof window.jspdf !== 'undefined' && window.jspdf.jsPDF) {
                         const { jsPDF } = window.jspdf;
                         const doc = new jsPDF();
                         
-                        // Set font
-                        doc.setFont('helvetica');
-                        doc.setFontSize(16);
-                        doc.text('Tailored Resume', 20, 20);
-                        
-                        // Split text into lines and add to PDF
-                        doc.setFontSize(11);
-                        const lines = resumeText.split('\n');
-                        let y = 35;
-                        const pageHeight = doc.internal.pageSize.height;
                         const margin = 20;
-                        const maxWidth = doc.internal.pageSize.width - (margin * 2);
+                        const pageWidth = doc.internal.pageSize.width;
+                        const pageHeight = doc.internal.pageSize.height;
+                        const maxWidth = pageWidth - (margin * 2);
+                        let y = margin;
+                        
+                        // Add header with styling
+                        doc.setFillColor(99, 102, 241); // Violet color
+                        doc.rect(0, 0, pageWidth, 40, 'F');
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFontSize(20);
+                        doc.setFont('helvetica', 'bold');
+                        const title = options.title || resumeName.trim() || 'Tailored Resume';
+                        doc.text(title, margin, 25);
+                        
+                        // Add date
+                        doc.setFontSize(10);
+                        doc.setFont('helvetica', 'normal');
+                        const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                        doc.text(`Generated: ${date}`, margin, 35);
+                        
+                        // Reset text color for body
+                        doc.setTextColor(0, 0, 0);
+                        y = 50;
+                        
+                        // Add section divider
+                        doc.setDrawColor(200, 200, 200);
+                        doc.line(margin, y, pageWidth - margin, y);
+                        y += 10;
+                        
+                        // Process text with better formatting
+                        doc.setFontSize(11);
+                        doc.setFont('helvetica', 'normal');
+                        const lines = resumeText.split('\n');
                         
                         lines.forEach((line) => {
                             if (!line.trim()) {
                                 y += 5; // Add spacing for empty lines
                             } else {
-                                // Split long lines to fit page width
-                                const splitLines = doc.splitTextToSize(line, maxWidth);
-                                splitLines.forEach((splitLine) => {
-                                    if (y > pageHeight - margin) {
+                                // Check if line looks like a heading (short, all caps, or ends with colon)
+                                const isHeading = line.length < 50 && (line === line.toUpperCase() || line.endsWith(':'));
+                                
+                                if (isHeading) {
+                                    // Add extra space before heading
+                                    if (y > margin + 10) y += 5;
+                                    
+                                    // Check if we need a new page
+                                    if (y > pageHeight - margin - 15) {
                                         doc.addPage();
                                         y = margin;
                                     }
-                                    doc.text(splitLine, margin, y);
-                                    y += 7;
-                                });
+                                    
+                                    // Format heading
+                                    doc.setFont('helvetica', 'bold');
+                                    doc.setFontSize(12);
+                                    const headingLines = doc.splitTextToSize(line.replace(':', ''), maxWidth);
+                                    headingLines.forEach((headingLine) => {
+                                        doc.text(headingLine, margin, y);
+                                        y += 7;
+                                    });
+                                    doc.setFont('helvetica', 'normal');
+                                    doc.setFontSize(11);
+                                    y += 3; // Extra space after heading
+                                } else {
+                                    // Regular text
+                                    const splitLines = doc.splitTextToSize(line, maxWidth);
+                                    splitLines.forEach((splitLine) => {
+                                        if (y > pageHeight - margin - 10) {
+                                            doc.addPage();
+                                            y = margin;
+                                        }
+                                        doc.text(splitLine, margin, y);
+                                        y += 6;
+                                    });
+                                }
                             }
                         });
                         
+                        // Add footer on each page
+                        const totalPages = doc.internal.pages.length - 1;
+                        for (let i = 1; i <= totalPages; i++) {
+                            doc.setPage(i);
+                            doc.setFontSize(8);
+                            doc.setTextColor(128, 128, 128);
+                            doc.text(`ResumeForge - Page ${i} of ${totalPages}`, pageWidth - margin - 50, pageHeight - 10);
+                        }
+                        
                         // Save the PDF
-                        const fileName = resumeName.trim() || 'tailored-resume';
+                        const fileName = (options.fileName || resumeName.trim() || 'tailored-resume').replace(/[^a-z0-9]/gi, '_').toLowerCase();
                         doc.save(`${fileName}.pdf`);
-                        trackEvent('resume_exported_pdf', { method: 'jspdf' });
+                        trackEvent('resume_exported_pdf', { method: 'jspdf', hasTitle: !!options.title });
                         showToast('PDF exported successfully!', 'success');
                     } else {
                         // Fallback to print method
@@ -2202,17 +2337,33 @@
                                         </button>
                                         <button
                                             onClick={() => {
+                                                setShowDashboard(true);
+                                                trackEvent('dashboard_opened');
+                                            }}
+                                            aria-label="View dashboard"
+                                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                                                isDark 
+                                                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                                            }`}
+                                            title="Dashboard & Analytics"
+                                        >
+                                            📊 Dashboard
+                                        </button>
+                                        <button
+                                            onClick={() => {
                                                 setShowStats(true);
                                                 trackEvent('stats_modal_opened');
                                             }}
                                             aria-label="View statistics"
                                             className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                                                 isDark 
-                                                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                                                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                                                    ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                             }`}
+                                            title="Quick Stats"
                                         >
-                                            📊
+                                            📈
                                         </button>
                                         <button
                                             onClick={toggleTheme}
@@ -2548,23 +2699,53 @@
                                             Uploaded: {uploadedFileName}
                                         </div>
                                     )}
-                                    <div className="mb-2">
-                                        <select
-                                            value={resumeSectionType}
-                                            onChange={(e) => setResumeSectionType(e.target.value)}
-                                            aria-label="Resume section type"
-                                            className={`px-3 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none text-sm ${
-                                                isDark 
-                                                    ? 'border-slate-600 bg-slate-900 text-slate-100' 
-                                                    : 'border-slate-300 bg-white text-slate-900'
-                                            }`}
-                                        >
-                                            <option value="general">General/Summary</option>
-                                            <option value="experience">Experience</option>
-                                            <option value="education">Education</option>
-                                            <option value="skills">Skills</option>
-                                            <option value="summary">Professional Summary</option>
-                                        </select>
+                                    <div className="grid grid-cols-2 gap-3 mb-2">
+                                        <div>
+                                            <label className={`block text-xs font-medium mb-1 ${
+                                                isDark ? 'text-slate-400' : 'text-slate-600'
+                                            }`}>
+                                                Section Type
+                                            </label>
+                                            <select
+                                                value={resumeSectionType}
+                                                onChange={(e) => setResumeSectionType(e.target.value)}
+                                                aria-label="Resume section type"
+                                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none text-sm ${
+                                                    isDark 
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                        : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                            >
+                                                <option value="general">General/Summary</option>
+                                                <option value="experience">Experience</option>
+                                                <option value="education">Education</option>
+                                                <option value="skills">Skills</option>
+                                                <option value="summary">Professional Summary</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className={`block text-xs font-medium mb-1 ${
+                                                isDark ? 'text-slate-400' : 'text-slate-600'
+                                            }`}>
+                                                Industry (Optional)
+                                            </label>
+                                            <select
+                                                value={selectedIndustry}
+                                                onChange={(e) => setSelectedIndustry(e.target.value)}
+                                                aria-label="Industry selection"
+                                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 focus:outline-none text-sm ${
+                                                    isDark 
+                                                        ? 'border-slate-600 bg-slate-900 text-slate-100' 
+                                                        : 'border-slate-300 bg-white text-slate-900'
+                                                }`}
+                                            >
+                                                {industries.map((industry, idx) => (
+                                                    <option key={idx} value={industry}>
+                                                        {industry || 'Select Industry'}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                     <textarea
                                         value={resumeSection}
@@ -2683,6 +2864,96 @@
                                                 </div>
                                             </div>
                                         )}
+                                    </div>
+                                )}
+                                
+                                {/* ATS Score Display */}
+                                {atsScore !== null && (
+                                    <div className={`rounded-2xl border shadow-sm p-6 ${
+                                        isDark 
+                                            ? 'bg-slate-800 border-slate-700' 
+                                            : 'bg-white border-slate-200'
+                                    }`}>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h2 className={`text-2xl font-bold ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>ATS Compatibility Score</h2>
+                                            <div className={`text-5xl font-bold ${
+                                                atsScore >= 80 ? 'text-emerald-600' :
+                                                atsScore >= 60 ? 'text-yellow-600' :
+                                                'text-red-600'
+                                            }`}>
+                                                {atsScore}
+                                            </div>
+                                        </div>
+                                        <div className="w-full bg-slate-200 rounded-full h-3 mb-4">
+                                            <div 
+                                                className={`h-3 rounded-full transition-all duration-500 ${
+                                                    atsScore >= 80 ? 'bg-emerald-600' :
+                                                    atsScore >= 60 ? 'bg-yellow-600' :
+                                                    'bg-red-600'
+                                                }`}
+                                                style={{ width: `${atsScore}%` }}
+                                            ></div>
+                                        </div>
+                                        <div className={`text-sm ${
+                                            isDark ? 'text-slate-300' : 'text-slate-600'
+                                        }`}>
+                                            {atsScore >= 80 ? (
+                                                <p className="flex items-center gap-2">
+                                                    <span className="text-emerald-600">✓</span>
+                                                    <span>Excellent! Your resume is highly optimized for ATS systems.</span>
+                                                </p>
+                                            ) : atsScore >= 60 ? (
+                                                <p className="flex items-center gap-2">
+                                                    <span className="text-yellow-600">⚠</span>
+                                                    <span>Good, but there's room for improvement. Consider adding more keywords.</span>
+                                                </p>
+                                            ) : (
+                                                <p className="flex items-center gap-2">
+                                                    <span className="text-red-600">✗</span>
+                                                    <span>Needs improvement. Focus on adding more relevant keywords and quantifiable achievements.</span>
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                            <div className={`p-2 rounded-lg ${
+                                                isDark ? 'bg-slate-700' : 'bg-slate-100'
+                                            }`}>
+                                                <div className={`font-semibold ${
+                                                    isDark ? 'text-slate-300' : 'text-slate-700'
+                                                }`}>Keyword Match</div>
+                                                <div className={`text-lg font-bold ${
+                                                    keywordMatches?.matchPercentage >= 70 ? 'text-emerald-600' : 'text-slate-400'
+                                                }`}>
+                                                    {keywordMatches?.matchPercentage || 0}%
+                                                </div>
+                                            </div>
+                                            <div className={`p-2 rounded-lg ${
+                                                isDark ? 'bg-slate-700' : 'bg-slate-100'
+                                            }`}>
+                                                <div className={`font-semibold ${
+                                                    isDark ? 'text-slate-300' : 'text-slate-700'
+                                                }`}>Structure</div>
+                                                <div className="text-lg font-bold text-emerald-600">✓</div>
+                                            </div>
+                                            <div className={`p-2 rounded-lg ${
+                                                isDark ? 'bg-slate-700' : 'bg-slate-100'
+                                            }`}>
+                                                <div className={`font-semibold ${
+                                                    isDark ? 'text-slate-300' : 'text-slate-700'
+                                                }`}>Action Verbs</div>
+                                                <div className="text-lg font-bold text-emerald-600">✓</div>
+                                            </div>
+                                            <div className={`p-2 rounded-lg ${
+                                                isDark ? 'bg-slate-700' : 'bg-slate-100'
+                                            }`}>
+                                                <div className={`font-semibold ${
+                                                    isDark ? 'text-slate-300' : 'text-slate-700'
+                                                }`}>Metrics</div>
+                                                <div className="text-lg font-bold text-emerald-600">✓</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                                 

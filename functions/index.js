@@ -276,7 +276,7 @@ exports.generateTailoredResume = functions.https.onCall(async (data, context) =>
     );
   }
 
-  const { jobDescription, resumeSection, sectionType } = data;
+  const { jobDescription, resumeSection, sectionType, industry } = data;
   
   if (!jobDescription || typeof jobDescription !== 'string' || !jobDescription.trim()) {
     throw new functions.https.HttpsError(
@@ -305,8 +305,11 @@ exports.generateTailoredResume = functions.https.onCall(async (data, context) =>
   const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
 
   try {
+    // Industry-specific guidance
+    const industryGuidance = industry ? `\n\nIndustry Context: ${industry}. Tailor the resume section specifically for this industry, using industry-standard terminology and best practices.` : '';
+    
     // Create prompt for resume tailoring
-    const prompt = `You are an expert resume writer and ATS (Applicant Tracking System) specialist. 
+    const prompt = `You are an expert resume writer and ATS (Applicant Tracking System) specialist.${industryGuidance}
 
 Job Description:
 ${jobDescription}
