@@ -920,60 +920,125 @@
                 }
             }, []);
             
-            // Check for successful payment redirect and refresh credits
+            // Real-time credit listener
+            useEffect(() => {
+                if (!user || !db || !currentUserId) return;
+                
+                const { doc, onSnapshot } = window.firebaseModules;
+                const userRef = doc(db, `artifacts/${APP_ID}/users/${currentUserId}`);
+                
+                console.log('Setting up real-time credit listener...');
+                const unsubscribe = onSnapshot(userRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.data();
+                        const credits = data.credits || 0;
+                        console.log('Credits updated via real-time listener:', credits);
+                        
+                        setSubscriptionData({
+                            credits: credits,
+                            hasPaidOnce: data.hasPaidOnce || false,
+                        });
+                        
+                        // Update usage limit
+                        checkUsageLimit().then(limit => {
+                            setUsageLimit(limit);
+                        });
+                    }
+                }, (error) => {
+                    console.error('Error in real-time credit listener:', error);
+                });
+                
+                return () => {
+                    console.log('Cleaning up real-time credit listener');
+                    unsubscribe();
+                };
+            }, [user, db, currentUserId]);
+            
+            // Check for successful payment redirect and verify payment
             useEffect(() => {
                 const urlParams = new URLSearchParams(window.location.search);
                 const subscriptionStatus = urlParams.get('subscription');
                 const sessionId = urlParams.get('session_id');
                 
-                if ((subscriptionStatus === 'success' || sessionId) && user && db) {
-                    // Payment successful - refresh credit balance
-                    console.log('Payment successful, refreshing credits...', { subscriptionStatus, sessionId });
+                if ((subscriptionStatus === 'success' || sessionId) && user && db && functions) {
+                    // Payment successful - verify and refresh credit balance
+                    console.log('Payment successful, verifying and refreshing credits...', { subscriptionStatus, sessionId });
                     
                     // Remove query parameters from URL
                     const cleanUrl = window.location.pathname;
                     window.history.replaceState({}, document.title, cleanUrl);
                     
-                    // Refresh subscription data and credits with retries
-                    let retryCount = 0;
-                    const maxRetries = 5;
-                    const retryDelay = 2000; // 2 seconds
-                    
-                    const refreshCredits = async () => {
+                    // Verify payment and add credits if webhook hasn't processed yet
+                    const verifyAndRefresh = async () => {
                         try {
+                            if (sessionId) {
+                                // Try to verify payment manually
+                                const { httpsCallable } = window.firebaseModules;
+                                const verifyPayment = httpsCallable(functions, 'verifyPaymentAndAddCredits');
+                                
+                                try {
+                                    const result = await verifyPayment({ sessionId });
+                                    if (result.data.success) {
+                                        console.log('Payment verified, credits added:', result.data);
+                                        showToast(`Payment successful! ${result.data.totalCredits} credits available.`, 'success');
+                                        trackEvent('payment_verified_manually', { credits: result.data.totalCredits });
+                                        return; // Success, exit early
+                                    } else {
+                                        console.log('Payment not yet completed:', result.data.message);
+                                    }
+                                } catch (verifyError) {
+                                    console.log('Manual verification failed (webhook may have processed it):', verifyError.message);
+                                    // Continue to refresh credits below
+                                }
+                            }
+                            
+                            // Refresh credits (webhook may have already processed it)
                             const userData = await getUserSubscriptionData();
                             setSubscriptionData(userData);
                             const limit = await checkUsageLimit();
                             setUsageLimit(limit);
                             
-                            if (userData.credits > 0 || retryCount >= maxRetries) {
+                            if (userData.credits > 0) {
                                 showToast(`Payment successful! ${userData.credits} credits available.`, 'success');
-                                trackEvent('payment_success_detected', { credits: userData.credits, retries: retryCount });
-                            } else if (retryCount < maxRetries) {
-                                // Credits not updated yet - webhook might still be processing
-                                retryCount++;
-                                console.log(`Credits not updated yet, retrying... (${retryCount}/${maxRetries})`);
-                                setTimeout(refreshCredits, retryDelay);
+                                trackEvent('payment_success_detected', { credits: userData.credits });
                             } else {
-                                // Max retries reached - show message that webhook should process it
-                                showToast('Payment successful! Credits should be added shortly. If not, please refresh the page.', 'info');
-                                trackEvent('payment_success_credits_pending');
+                                // Credits not updated yet - retry a few times
+                                let retryCount = 0;
+                                const maxRetries = 3;
+                                const retryDelay = 3000; // 3 seconds
+                                
+                                const retryRefresh = async () => {
+                                    retryCount++;
+                                    console.log(`Credits not updated yet, retrying... (${retryCount}/${maxRetries})`);
+                                    
+                                    const retryData = await getUserSubscriptionData();
+                                    setSubscriptionData(retryData);
+                                    const retryLimit = await checkUsageLimit();
+                                    setUsageLimit(retryLimit);
+                                    
+                                    if (retryData.credits > 0) {
+                                        showToast(`Payment successful! ${retryData.credits} credits available.`, 'success');
+                                        trackEvent('payment_success_detected_retry', { credits: retryData.credits, retries: retryCount });
+                                    } else if (retryCount < maxRetries) {
+                                        setTimeout(retryRefresh, retryDelay);
+                                    } else {
+                                        showToast('Payment successful! If credits don\'t appear, please refresh the page or contact support.', 'info');
+                                        trackEvent('payment_success_credits_pending');
+                                    }
+                                };
+                                
+                                setTimeout(retryRefresh, retryDelay);
                             }
                         } catch (error) {
-                            console.error('Error refreshing credits after payment:', error);
-                            if (retryCount < maxRetries) {
-                                retryCount++;
-                                setTimeout(refreshCredits, retryDelay);
-                            } else {
-                                showToast('Payment successful! Credits should be added shortly. If not, please refresh the page.', 'info');
-                            }
+                            console.error('Error verifying payment:', error);
+                            showToast('Payment successful! Credits should be added shortly. If not, please refresh the page.', 'info');
                         }
                     };
                     
-                    // Start refreshing after a short delay to allow webhook to process
-                    setTimeout(refreshCredits, 1000);
+                    // Start verification after a short delay
+                    setTimeout(verifyAndRefresh, 1500);
                 }
-            }, [user, db]);
+            }, [user, db, functions]);
             
             useEffect(() => {
                 // Initialize Firebase

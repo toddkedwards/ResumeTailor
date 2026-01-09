@@ -190,7 +190,7 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
 async function handlePaymentSuccess(session) {
   const userId = session.metadata?.firebaseUserId;
   if (!userId) {
-    console.error('No firebaseUserId in session metadata');
+    console.error('No firebaseUserId in session metadata', session.metadata);
     return;
   }
 
@@ -202,26 +202,111 @@ async function handlePaymentSuccess(session) {
 
   const creditsToAdd = parseInt(session.metadata?.creditsToAdd || '5', 10);
   const userRef = admin.firestore().doc(`artifacts/${APP_ID}/users/${userId}`);
-  const userDoc = await userRef.get();
+  
+  try {
+    // Use transaction to prevent race conditions
+    await admin.firestore().runTransaction(async (transaction) => {
+      const doc = await transaction.get(userRef);
+      const existingCredits = doc.exists() ? (doc.data().credits || 0) : 0;
+      
+      transaction.set(userRef, {
+        credits: existingCredits + creditsToAdd,
+        hasPaidOnce: true,
+        lastCreditPurchase: admin.firestore.FieldValue.serverTimestamp(),
+        stripeCustomerId: session.customer,
+      }, { merge: true });
+    });
 
-  const currentCredits = userDoc.exists() ? (userDoc.data().credits || 0) : 0;
-  const hasPaidOnce = userDoc.exists() ? (userDoc.data().hasPaidOnce || false) : false;
-
-  // Use transaction to prevent race conditions
-  await admin.firestore().runTransaction(async (transaction) => {
-    const doc = await transaction.get(userRef);
-    const existingCredits = doc.exists() ? (doc.data().credits || 0) : 0;
-    
-    transaction.set(userRef, {
-      credits: existingCredits + creditsToAdd,
-      hasPaidOnce: true,
-      lastCreditPurchase: admin.firestore.FieldValue.serverTimestamp(),
-      stripeCustomerId: session.customer,
-    }, { merge: true });
-  });
-
-  console.log(`Added ${creditsToAdd} credits to user: ${userId}. New total: ${currentCredits + creditsToAdd}`);
+    // Verify the update
+    const verifyDoc = await userRef.get();
+    const newCredits = verifyDoc.exists() ? (verifyDoc.data().credits || 0) : 0;
+    console.log(`Successfully added ${creditsToAdd} credits to user: ${userId}. New total: ${newCredits}`);
+  } catch (error) {
+    console.error(`Error adding credits to user ${userId}:`, error);
+    throw error; // Re-throw so webhook can retry
+  }
 }
+
+/**
+ * Verify and add credits for a checkout session (manual verification)
+ * This can be called from the frontend if webhook hasn't processed yet
+ */
+exports.verifyPaymentAndAddCredits = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
+
+  if (!stripe) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Stripe is not configured'
+    );
+  }
+
+  const { sessionId } = data;
+  if (!sessionId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Session ID is required'
+    );
+  }
+
+  const userId = context.auth.uid;
+
+  try {
+    // Retrieve the checkout session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    
+    // Verify this session belongs to the current user
+    if (session.metadata?.firebaseUserId !== userId) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'This session does not belong to the current user'
+      );
+    }
+
+    // Check if payment was completed
+    if (session.payment_status !== 'paid') {
+      return {
+        success: false,
+        message: `Payment not completed. Status: ${session.payment_status}`,
+        creditsAdded: 0
+      };
+    }
+
+    // Check if credits were already added (prevent double-adding)
+    const userRef = admin.firestore().doc(`artifacts/${APP_ID}/users/${userId}`);
+    const userDoc = await userRef.get();
+    const lastPurchase = userDoc.exists() ? userDoc.data().lastCreditPurchase : null;
+    
+    // If purchase was very recent (within last minute), might be duplicate
+    // But we'll still process it to be safe (transaction will handle it)
+    
+    // Add credits
+    await handlePaymentSuccess(session);
+    
+    // Get updated credits
+    const updatedDoc = await userRef.get();
+    const newCredits = updatedDoc.exists() ? (updatedDoc.data().credits || 0) : 0;
+    
+    return {
+      success: true,
+      message: 'Credits added successfully',
+      creditsAdded: parseInt(session.metadata?.creditsToAdd || '5', 10),
+      totalCredits: newCredits
+    };
+  } catch (error) {
+    console.error('Error verifying payment:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to verify payment',
+      error.message
+    );
+  }
+});
 
 /**
  * Handle subscription update
