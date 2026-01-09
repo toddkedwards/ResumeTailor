@@ -326,11 +326,11 @@ async function handlePaymentSuccess(session) {
       // Use transaction to prevent race conditions
       const result = await admin.firestore().runTransaction(async (transaction) => {
         const doc = await transaction.get(userRef);
-        const existingCredits = doc.exists() ? (doc.data().credits || 0) : 0;
+        const existingCredits = doc.exists ? (doc.data().credits || 0) : 0;
         const newCredits = existingCredits + creditsToAdd;
         
         console.log('Transaction: updating credits', {
-          docExists: doc.exists(),
+          docExists: doc.exists,
           existingCredits,
           creditsToAdd,
           newCredits
@@ -354,11 +354,11 @@ async function handlePaymentSuccess(session) {
 
     // Verify the update
     const verifyDoc = await userRef.get();
-    const newCredits = verifyDoc.exists() ? (verifyDoc.data().credits || 0) : 0;
+    const newCredits = verifyDoc.exists ? (verifyDoc.data().credits || 0) : 0;
     console.log(`✅ Successfully added ${creditsToAdd} credits to user: ${userId}. New total: ${newCredits}`);
     
     // Log full user document for debugging
-    if (verifyDoc.exists()) {
+    if (verifyDoc.exists) {
       console.log('User document after update:', verifyDoc.data());
     } else {
       console.error('⚠️ User document does not exist after update!');
@@ -449,7 +449,7 @@ exports.verifyPaymentAndAddCredits = functions.https.onCall(async (data, context
     
     // Get updated credits
     const updatedDoc = await userRef.get();
-    const newCredits = updatedDoc.exists() ? (updatedDoc.data().credits || 0) : 0;
+    const newCredits = updatedDoc.exists ? (updatedDoc.data().credits || 0) : 0;
     
     return {
       success: true,
