@@ -2382,15 +2382,15 @@
                                                 trackEvent('pricing_modal_opened');
                                                 setShowPricingModal(true);
                                             }}
-                                            className={`px-3 py-1.5 rounded-lg transition-colors flex flex-col items-center justify-center min-w-[60px] ${
+                                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors flex items-center gap-1.5 ${
                                                 isDark 
                                                     ? 'bg-slate-700 text-white hover:bg-slate-600' 
                                                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                             }`}
                                             title="Credits remaining - Click to buy more"
                                         >
-                                            <div className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Credits</div>
-                                            <div className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{credits}</div>
+                                            <span className="font-medium">Credits</span>
+                                            <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{credits}</span>
                                         </button>
                                         <button
                                             onClick={() => {
