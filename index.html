@@ -1709,6 +1709,118 @@
                 return Math.min(Math.round(score), maxScore);
             }
             
+            // Calculate Resume Strength Score - overall quality assessment
+            function calculateResumeStrength(resumeText, jobDescription, keywordMatches = null) {
+                if (!resumeText || !jobDescription) return null;
+                
+                let totalScore = 0;
+                const maxScore = 100;
+                const breakdown = {
+                    atsCompatibility: 0,
+                    contentQuality: 0,
+                    structure: 0,
+                    achievements: 0,
+                    keywordOptimization: 0
+                };
+                
+                // 1. ATS Compatibility (25 points)
+                if (keywordMatches) {
+                    const matchPercentage = keywordMatches.matchPercentage || 0;
+                    breakdown.atsCompatibility = (matchPercentage / 100) * 25;
+                } else {
+                    // Basic keyword matching if no keywordMatches provided
+                    const jobWords = jobDescription.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+                    const resumeWords = resumeText.toLowerCase().split(/\s+/);
+                    const matched = jobWords.filter(kw => resumeWords.some(rw => rw.includes(kw)));
+                    const matchPercentage = jobWords.length > 0 ? (matched.length / jobWords.length) * 100 : 0;
+                    breakdown.atsCompatibility = (matchPercentage / 100) * 25;
+                }
+                
+                // 2. Content Quality (25 points)
+                const wordCount = resumeText.split(/\s+/).length;
+                // Optimal length: 200-400 words for a section
+                if (wordCount >= 200 && wordCount <= 400) breakdown.contentQuality = 25;
+                else if (wordCount >= 150 && wordCount < 200) breakdown.contentQuality = 20;
+                else if (wordCount > 400 && wordCount <= 600) breakdown.contentQuality = 20;
+                else if (wordCount >= 100 && wordCount < 150) breakdown.contentQuality = 15;
+                else breakdown.contentQuality = 10;
+                
+                // 3. Structure and Formatting (20 points)
+                const hasBulletPoints = resumeText.includes('•') || resumeText.includes('-') || /^\s*[-•*]\s/m.test(resumeText);
+                const hasNumbers = /\d+/.test(resumeText);
+                const hasProperCapitalization = /[A-Z]/.test(resumeText);
+                let structureScore = 0;
+                if (hasBulletPoints) structureScore += 7;
+                if (hasNumbers) structureScore += 7;
+                if (hasProperCapitalization) structureScore += 6;
+                breakdown.structure = structureScore;
+                
+                // 4. Achievements and Action Verbs (20 points)
+                const actionVerbs = ['achieved', 'improved', 'increased', 'developed', 'managed', 'led', 'created', 
+                    'implemented', 'designed', 'optimized', 'delivered', 'executed', 'established', 'generated', 
+                    'launched', 'reduced', 'enhanced', 'streamlined', 'transformed', 'built'];
+                const actionVerbCount = actionVerbs.filter(verb => 
+                    resumeText.toLowerCase().includes(verb)
+                ).length;
+                breakdown.achievements = Math.min(20, (actionVerbCount / 10) * 20);
+                
+                // Check for quantifiable results (percentages, numbers, metrics)
+                const hasQuantifiableResults = /(\d+%|\$\d+|\d+\+|\d+ years?|\d+ months?)/i.test(resumeText);
+                if (hasQuantifiableResults) breakdown.achievements = Math.min(20, breakdown.achievements + 5);
+                
+                // 5. Keyword Optimization (10 points)
+                if (keywordMatches) {
+                    const matchedKeywords = keywordMatches.matched || [];
+                    const missingKeywords = keywordMatches.missing || [];
+                    const totalKeywords = matchedKeywords.length + missingKeywords.length;
+                    if (totalKeywords > 0) {
+                        breakdown.keywordOptimization = (matchedKeywords.length / totalKeywords) * 10;
+                    }
+                } else {
+                    breakdown.keywordOptimization = 5; // Default middle score
+                }
+                
+                totalScore = breakdown.atsCompatibility + breakdown.contentQuality + breakdown.structure + 
+                            breakdown.achievements + breakdown.keywordOptimization;
+                
+                return {
+                    score: Math.round(totalScore),
+                    breakdown,
+                    grade: totalScore >= 90 ? 'A+' :
+                           totalScore >= 80 ? 'A' :
+                           totalScore >= 70 ? 'B' :
+                           totalScore >= 60 ? 'C' :
+                           totalScore >= 50 ? 'D' : 'F',
+                    recommendations: generateStrengthRecommendations(breakdown, totalScore)
+                };
+            }
+            
+            function generateStrengthRecommendations(breakdown, totalScore) {
+                const recommendations = [];
+                
+                if (breakdown.atsCompatibility < 15) {
+                    recommendations.push('Add more keywords from the job description to improve ATS compatibility');
+                }
+                if (breakdown.contentQuality < 15) {
+                    recommendations.push('Expand your content to provide more detail about your experience');
+                }
+                if (breakdown.structure < 12) {
+                    recommendations.push('Use bullet points and proper formatting for better readability');
+                }
+                if (breakdown.achievements < 12) {
+                    recommendations.push('Include more action verbs and quantifiable achievements');
+                }
+                if (breakdown.keywordOptimization < 6) {
+                    recommendations.push('Incorporate more relevant keywords from the job description');
+                }
+                
+                if (recommendations.length === 0) {
+                    recommendations.push('Your resume is well-optimized! Keep up the great work.');
+                }
+                
+                return recommendations;
+            }
+            
             // Industry list for dropdown
             const industries = [
                 '', 'Technology/Software', 'Healthcare', 'Finance/Banking', 'Education', 
