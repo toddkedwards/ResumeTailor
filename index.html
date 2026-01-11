@@ -729,6 +729,8 @@
             const [showResumeBuilder, setShowResumeBuilder] = useState(false);
             const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
             const [showResumePreview, setShowResumePreview] = useState(false);
+            const [showCopyDropdown, setShowCopyDropdown] = useState(false);
+            const [showExportDropdown, setShowExportDropdown] = useState(false);
             const [fullResume, setFullResume] = useState({
                 contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
                 summary: '',
@@ -1485,6 +1487,31 @@
                 window.addEventListener('keydown', handleKeyDown);
                 return () => window.removeEventListener('keydown', handleKeyDown);
             }, [loading, jobDescription, resumeSection, user, tailoredResume, resumeSectionType, showAuthModal, showPricingModal, showSavedResumes, showRecentJDs, activeTab, showCoverLetter, coverLetter, showInterviewQuestions, interviewQuestions.length, showDashboard, showStats, showResumeBuilder, showKeyboardShortcuts]);
+            
+            // Close dropdowns when clicking outside
+            useEffect(() => {
+                const handleClickOutside = (e) => {
+                    // Check if click is outside copy dropdown
+                    if (showCopyDropdown) {
+                        const copyDropdown = document.querySelector('[data-copy-dropdown]');
+                        if (copyDropdown && !copyDropdown.contains(e.target)) {
+                            setShowCopyDropdown(false);
+                        }
+                    }
+                    // Check if click is outside export dropdown
+                    if (showExportDropdown) {
+                        const exportDropdown = document.querySelector('[data-export-dropdown]');
+                        if (exportDropdown && !exportDropdown.contains(e.target)) {
+                            setShowExportDropdown(false);
+                        }
+                    }
+                };
+                
+                if (showCopyDropdown || showExportDropdown) {
+                    document.addEventListener('mousedown', handleClickOutside);
+                    return () => document.removeEventListener('mousedown', handleClickOutside);
+                }
+            }, [showCopyDropdown, showExportDropdown]);
             
             // Load recent job descriptions and resumes on mount
             useEffect(() => {
@@ -5483,20 +5510,25 @@
                                                         isDark ? 'text-white' : 'text-slate-900'
                                                     }`}>Tailored Resume Section</h2>
                                                     <div className="flex gap-2 flex-wrap">
-                                                        <div className="relative group">
+                                                        <div className="relative" data-copy-dropdown>
                                                             <button
+                                                                onClick={() => setShowCopyDropdown(!showCopyDropdown)}
                                                                 title="Copy resume in various formats"
                                                                 className="px-4 py-2 bg-slate-600 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition-all min-h-[44px] flex items-center gap-1"
                                                             >
                                                                 📋 Copy
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <svg className={`w-4 h-4 transition-transform ${showCopyDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                                                 </svg>
                                                             </button>
-                                                            <div className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                                            {showCopyDropdown && (
+                                                            <div className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-50">
                                                                 <div className="py-1">
                                                                     <button
-                                                                        onClick={() => copyResume(tailoredResume, 'plain')}
+                                                                        onClick={() => {
+                                                                            copyResume(tailoredResume, 'plain');
+                                                                            setShowCopyDropdown(false);
+                                                                        }}
                                                                         className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                                                                         title="Copy as plain text"
                                                                     >
@@ -5506,7 +5538,10 @@
                                                                         <span>Plain Text</span>
                                                                     </button>
                                                                     <button
-                                                                        onClick={() => copyResume(tailoredResume, 'formatted')}
+                                                                        onClick={() => {
+                                                                            copyResume(tailoredResume, 'formatted');
+                                                                            setShowCopyDropdown(false);
+                                                                        }}
                                                                         className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                                                                         title="Copy with formatting markers"
                                                                     >
@@ -5516,7 +5551,10 @@
                                                                         <span>Formatted Text</span>
                                                                     </button>
                                                                     <button
-                                                                        onClick={() => copyResume(tailoredResume, 'html')}
+                                                                        onClick={() => {
+                                                                            copyResume(tailoredResume, 'html');
+                                                                            setShowCopyDropdown(false);
+                                                                        }}
                                                                         className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                                                                         title="Copy as HTML"
                                                                     >
@@ -5527,6 +5565,7 @@
                                                                     </button>
                                                                 </div>
                                                             </div>
+                                                            )}
                                                         </div>
                                                         <button
                                                             onClick={() => setShowResumePreview(true)}
@@ -5563,8 +5602,9 @@
                                                             </div>
                                                         )}
                                                         {/* Export Format Dropdown */}
-                                                        <div className="relative group">
+                                                        <div className="relative" data-export-dropdown>
                                                             <button
+                                                                onClick={() => setShowExportDropdown(!showExportDropdown)}
                                                                 title="Export resume in various formats"
                                                                 className="px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:from-violet-700 hover:to-purple-700 transition-all flex items-center gap-1 min-h-[44px]"
                                                             >
@@ -5573,14 +5613,18 @@
                                                                 </svg>
                                                                 <span className="hidden sm:inline">Export</span>
                                                                 <span className="sm:hidden">Export</span>
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <svg className={`w-4 h-4 transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                                                 </svg>
                                                             </button>
-                                                            <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                                            {showExportDropdown && (
+                                                            <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-50">
                                                                 <div className="py-1">
                                                                     <button
-                                                                        onClick={() => exportToPDF(tailoredResume)}
+                                                                        onClick={() => {
+                                                                            exportToPDF(tailoredResume);
+                                                                            setShowExportDropdown(false);
+                                                                        }}
                                                                         className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                                                                         title="Export as PDF document"
                                                                     >
@@ -5590,7 +5634,10 @@
                                                                         <span className="font-medium">PDF</span>
                                                                     </button>
                                                                     <button
-                                                                        onClick={() => exportToWord(tailoredResume)}
+                                                                        onClick={() => {
+                                                                            exportToWord(tailoredResume);
+                                                                            setShowExportDropdown(false);
+                                                                        }}
                                                                         className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                                                                         title="Export as Microsoft Word document"
                                                                     >
@@ -5601,7 +5648,10 @@
                                                                         <span className="font-medium">Word (.docx)</span>
                                                                     </button>
                                                                     <button
-                                                                        onClick={() => exportToPages(tailoredResume)}
+                                                                        onClick={() => {
+                                                                            exportToPages(tailoredResume);
+                                                                            setShowExportDropdown(false);
+                                                                        }}
                                                                         className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                                                                         title="Export for Apple Pages"
                                                                     >
@@ -5611,7 +5661,10 @@
                                                                         <span className="font-medium">Pages</span>
                                                                     </button>
                                                                     <button
-                                                                        onClick={() => exportToGoogleDocs(tailoredResume)}
+                                                                        onClick={() => {
+                                                                            exportToGoogleDocs(tailoredResume);
+                                                                            setShowExportDropdown(false);
+                                                                        }}
                                                                         className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                                                                         title="Export for Google Docs"
                                                                     >
@@ -5623,6 +5676,7 @@
                                                                     </button>
                                                                 </div>
                                                             </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
