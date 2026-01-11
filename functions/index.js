@@ -201,50 +201,17 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
           break;
       
       case 'payment_intent.succeeded':
-        // Fallback: if checkout.session.completed didn't fire, handle payment_intent
-        const paymentIntent = event.data.object;
-        console.log('Payment intent succeeded:', {
-          paymentIntentId: paymentIntent.id,
-          amount: paymentIntent.amount,
-          metadata: paymentIntent.metadata
+        // SKIP payment_intent.succeeded to prevent duplicate credit additions
+        // The checkout.session.completed event is the primary event and handles credit addition
+        // Processing both events causes credits to be added twice
+        console.log('⚠️ payment_intent.succeeded received - skipping to prevent duplicate processing');
+        console.log('Payment intent details:', {
+          paymentIntentId: event.data.object.id,
+          amount: event.data.object.amount,
+          customer: event.data.object.customer
         });
-        
-        // Try to find the checkout session from the payment intent
-        if (paymentIntent.metadata?.checkout_session_id) {
-          try {
-            const checkoutSession = await stripe.checkout.sessions.retrieve(
-              paymentIntent.metadata.checkout_session_id
-            );
-            console.log('Retrieved checkout session from payment intent:', {
-              sessionId: checkoutSession.id,
-              paymentStatus: checkoutSession.payment_status
-            });
-            if (checkoutSession.payment_status === 'paid') {
-              await handlePaymentSuccess(checkoutSession);
-            }
-          } catch (err) {
-            console.error('Error retrieving checkout session:', err);
-          }
-        } else {
-          // Try to find checkout session by customer and recent payments
-          if (paymentIntent.customer) {
-            try {
-              const sessions = await stripe.checkout.sessions.list({
-                customer: paymentIntent.customer,
-                limit: 1
-              });
-              if (sessions.data.length > 0) {
-                const checkoutSession = sessions.data[0];
-                console.log('Found checkout session via customer lookup:', checkoutSession.id);
-                if (checkoutSession.payment_status === 'paid') {
-                  await handlePaymentSuccess(checkoutSession);
-                }
-              }
-            } catch (err) {
-              console.error('Error finding checkout session:', err);
-            }
-          }
-        }
+        console.log('ℹ️ Credits are handled by checkout.session.completed event only');
+        // Explicitly do NOT process payment_intent - let checkout.session.completed handle it
         break;
 
         // Subscription events no longer needed for one-time payments
@@ -305,8 +272,19 @@ async function handlePaymentSuccess(session) {
     return;
   }
 
-  const creditsToAdd = parseInt(session.metadata?.creditsToAdd || '5', 10);
+  const sessionId = session.id;
   const userRef = admin.firestore().doc(`artifacts/${APP_ID}/users/${userId}`);
+  
+  // Check if this session has already been processed (idempotency check)
+  const processedSessionsRef = admin.firestore().collection('processed_payments');
+  const sessionDoc = await processedSessionsRef.doc(sessionId).get();
+  
+  if (sessionDoc.exists) {
+    console.log(`⚠️ Session ${sessionId} has already been processed. Skipping to prevent duplicate credits.`);
+    return;
+  }
+
+  const creditsToAdd = parseInt(session.metadata?.creditsToAdd || '5', 10);
   
     console.log('Adding credits:', {
       userId,
@@ -323,8 +301,15 @@ async function handlePaymentSuccess(session) {
         console.log('Before update - Current data:', beforeDoc.data());
       }
       
-      // Use transaction to prevent race conditions
+      // Use transaction to prevent race conditions and ensure idempotency
       const result = await admin.firestore().runTransaction(async (transaction) => {
+        // Check if session was already processed (double-check in transaction)
+        const processedDoc = await transaction.get(processedSessionsRef.doc(sessionId));
+        if (processedDoc.exists) {
+          console.log(`⚠️ Session ${sessionId} already processed in transaction. Aborting.`);
+          throw new Error('Session already processed');
+        }
+        
         const doc = await transaction.get(userRef);
         const existingCredits = doc.exists ? (doc.data().credits || 0) : 0;
         const newCredits = existingCredits + creditsToAdd;
@@ -344,6 +329,16 @@ async function handlePaymentSuccess(session) {
         };
         
         console.log('Transaction: setting data', updateData);
+        
+        // Mark session as processed BEFORE updating credits
+        transaction.set(processedSessionsRef.doc(sessionId), {
+          userId: userId,
+          sessionId: sessionId,
+          creditsAdded: creditsToAdd,
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+          amount: session.amount_total,
+          currency: session.currency
+        });
         
         transaction.set(userRef, updateData, { merge: true });
         
@@ -540,6 +535,82 @@ async function handleSubscriptionDeleted(subscription) {
 }
 
 /**
+ * Rate Limiting Middleware
+ * Limits API calls per user to prevent abuse
+ */
+async function checkRateLimit(userId, functionName, maxRequests = 10, windowMinutes = 1) {
+  if (!userId) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated for rate limiting'
+    );
+  }
+
+  const db = admin.firestore();
+  const rateLimitRef = db.collection('rate_limits').doc(`${userId}_${functionName}`);
+  const now = admin.firestore.Timestamp.now();
+  const windowStart = admin.firestore.Timestamp.fromMillis(
+    now.toMillis() - (windowMinutes * 60 * 1000)
+  );
+
+  try {
+    const rateLimitDoc = await rateLimitRef.get();
+    
+    if (!rateLimitDoc.exists) {
+      // First request - create rate limit document
+      await rateLimitRef.set({
+        requests: [now],
+        lastRequest: now,
+        count: 1
+      });
+      return { allowed: true, remaining: maxRequests - 1 };
+    }
+
+    const rateLimitData = rateLimitDoc.data();
+    const requests = rateLimitData.requests || [];
+    
+    // Filter out requests outside the time window
+    const recentRequests = requests.filter(
+      req => req.toMillis() > windowStart.toMillis()
+    );
+
+    if (recentRequests.length >= maxRequests) {
+      const oldestRequest = recentRequests[0];
+      const waitUntil = oldestRequest.toMillis() + (windowMinutes * 60 * 1000);
+      const waitSeconds = Math.ceil((waitUntil - now.toMillis()) / 1000);
+      
+      throw new functions.https.HttpsError(
+        'resource-exhausted',
+        `Rate limit exceeded. Please wait ${waitSeconds} seconds before trying again.`,
+        { retryAfter: waitSeconds }
+      );
+    }
+
+    // Add current request
+    recentRequests.push(now);
+    
+    // Update rate limit document
+    await rateLimitRef.set({
+      requests: recentRequests,
+      lastRequest: now,
+      count: recentRequests.length
+    }, { merge: true });
+
+    return { 
+      allowed: true, 
+      remaining: maxRequests - recentRequests.length 
+    };
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    // If rate limit check fails, allow the request (fail open)
+    console.error('Rate limit check error:', error);
+    return { allowed: true, remaining: maxRequests };
+  }
+}
+
+/**
  * Generate tailored resume based on job description and resume section
  * Returns tailored resume, keyword matches, and improvement tips
  */
@@ -551,6 +622,9 @@ exports.generateTailoredResume = functions.https.onCall(async (data, context) =>
       'User must be authenticated to tailor resumes'
     );
   }
+
+  // Check rate limit (10 requests per minute)
+  await checkRateLimit(context.auth.uid, 'generateTailoredResume', 10, 1);
 
   const { jobDescription, resumeSection, sectionType, industry } = data;
   
@@ -724,6 +798,9 @@ exports.generateCoverLetter = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // Check rate limit (10 requests per minute)
+  await checkRateLimit(context.auth.uid, 'generateCoverLetter', 10, 1);
+
   const { jobDescription, resumeText, applicantName, companyName } = data;
   
   if (!jobDescription || typeof jobDescription !== 'string' || !jobDescription.trim()) {
@@ -838,6 +915,164 @@ IMPORTANT:
     throw new functions.https.HttpsError(
       'internal',
       'Failed to generate cover letter',
+      error.message
+    );
+  }
+});
+
+/**
+ * Generate interview questions based on job description and resume
+ * Returns tailored interview questions with tips
+ */
+exports.generateInterviewQuestions = functions.https.onCall(async (data, context) => {
+  // Verify user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated to generate interview questions'
+    );
+  }
+
+  // Check rate limit (10 requests per minute)
+  await checkRateLimit(context.auth.uid, 'generateInterviewQuestions', 10, 1);
+
+  const { jobDescription, resumeText } = data;
+  
+  if (!jobDescription || typeof jobDescription !== 'string' || !jobDescription.trim()) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Job description is required'
+    );
+  }
+  
+  if (!resumeText || typeof resumeText !== 'string' || !resumeText.trim()) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Resume text is required'
+    );
+  }
+
+  // Get Gemini API key from config
+  const geminiApiKey = functions.config().gemini?.api_key;
+  
+  if (!geminiApiKey) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Gemini API key not configured'
+    );
+  }
+
+  const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
+
+  try {
+    const prompt = `You are an expert HR interviewer. Based on the following job description and resume, generate 8-12 diverse interview questions. Include a mix of behavioral, technical, situational, and experience-based questions. For each question, provide a brief tip on how to answer it effectively.
+
+Job Description:
+${jobDescription}
+
+Resume:
+${resumeText}
+
+Format your response as a JSON object with this exact structure:
+{
+  "questions": [
+    {
+      "question": "Question text here",
+      "type": "behavioral|technical|situational|experience",
+      "tips": "Brief tip on how to answer this question effectively"
+    }
+  ]
+}
+
+IMPORTANT:
+- Generate 8-12 questions total
+- Include a mix of question types (behavioral, technical, situational, experience-based)
+- Make questions specific to the job description and candidate's experience
+- Provide actionable tips for each question
+- Ensure all questions are relevant to the position`;
+
+    const response = await fetch(`${geminiApiUrl}?key=${geminiApiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || `API error: ${response.status}`;
+      
+      console.error('Gemini API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
+      
+      throw new functions.https.HttpsError(
+        'internal',
+        `Gemini API error: ${errorMessage}`,
+        { status: response.status, error: errorData }
+      );
+    }
+
+    const result = await response.json();
+    
+    if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+      throw new Error('Invalid response from Gemini API');
+    }
+
+    const responseText = result.candidates[0].content.parts[0].text;
+    
+    // Try to parse JSON response
+    let parsedResult;
+    try {
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/```\s*([\s\S]*?)\s*```/);
+      const jsonText = jsonMatch ? jsonMatch[1] : responseText;
+      parsedResult = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.warn('Could not parse JSON from Gemini response, attempting fallback:', parseError);
+      // Fallback: try to extract questions if not perfectly JSON
+      const questions = responseText.split(/\d+\.\s*/).filter(Boolean).map(q => q.trim());
+      parsedResult = {
+        questions: questions.map(q => {
+          const lines = q.split('\n');
+          return {
+            question: lines[0].trim(),
+            type: 'general',
+            tips: lines.slice(1).join(' ').replace(/Tip:\s*/i, '').trim() || 'Prepare a specific example from your experience.'
+          };
+        }).filter(q => q.question)
+      };
+    }
+
+    // Ensure questions array exists and is valid
+    if (!parsedResult.questions || !Array.isArray(parsedResult.questions)) {
+      throw new Error('Invalid response format: questions array not found');
+    }
+
+    return {
+      success: true,
+      questions: parsedResult.questions.filter(q => q && q.question),
+      totalQuestions: parsedResult.questions.length
+    };
+  } catch (error) {
+    console.error('Interview questions generation error:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to generate interview questions',
       error.message
     );
   }

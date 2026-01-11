@@ -1,0 +1,17 @@
+{
+  "name": "resume-tailor",
+  "version": "1.0.0",
+  "description": "AI-Powered Resume Tailoring Application",
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/input.css -o ./dist/output.css --minify",
+    "watch:css": "tailwindcss -i ./src/input.css -o ./dist/output.css --watch",
+    "build": "npm run build:css",
+    "dev": "npm run watch:css"
+  },
+  "keywords": ["resume", "ats", "tailoring", "ai"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "tailwindcss": "^3.4.1"
+  }
+}

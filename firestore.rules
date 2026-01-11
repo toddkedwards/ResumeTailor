@@ -19,6 +19,18 @@ service cloud.firestore {
       }
     }
     
+    // Rate limits collection - only server can write, users can read their own
+    match /rate_limits/{rateLimitId} {
+      allow read: if request.auth != null && request.auth.uid != null && rateLimitId.matches(request.auth.uid + '_.*');
+      allow write: if false; // Only server can write
+    }
+    
+    // Processed payments collection - only server can write, users can read their own
+    match /processed_payments/{paymentId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only server can write
+    }
+    
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;

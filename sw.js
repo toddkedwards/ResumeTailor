@@ -1,7 +1,7 @@
 // Service Worker for ResumeForge
-// Version 1.3.0 - Force cache clear, don't cache index.html
-const CACHE_NAME = 'resumeforge-v1.3';
-const RUNTIME_CACHE = 'resumeforge-runtime-v1.3';
+// Version 1.5.0 - Force cache clear, don't cache index.html
+const CACHE_NAME = 'resumeforge-v1.5';
+const RUNTIME_CACHE = 'resumeforge-runtime-v1.5';
 
 // Assets to cache on install
 // NOTE: We don't cache index.html to ensure fresh code is always loaded
