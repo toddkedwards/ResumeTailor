@@ -5563,35 +5563,84 @@
                                     
                                     {/* Real-time Suggestions Toggle */}
                                     {user && (
-                                        <div className="flex items-center justify-between mt-3">
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => setShowSuggestions(!showSuggestions)}
-                                                    className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                                                        showSuggestions
-                                                            ? isDark ? 'bg-violet-600 text-white' : 'bg-violet-600 text-white'
-                                                            : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                                    }`}
-                                                    title="Toggle real-time AI suggestions"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                                    </svg>
-                                                    <span>AI Suggestions</span>
-                                                    {suggestionsLoading && (
-                                                        <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <div className="mt-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            const newValue = !showSuggestions;
+                                                            setShowSuggestions(newValue);
+                                                            // If enabling and there's text, trigger suggestions immediately
+                                                            if (newValue && resumeSection.trim().length >= 20) {
+                                                                debouncedGetSuggestions(resumeSection, jobDescription);
+                                                            } else if (!newValue) {
+                                                                // Clear suggestions when disabling
+                                                                setSuggestions([]);
+                                                                if (suggestionDebounceTimer) {
+                                                                    clearTimeout(suggestionDebounceTimer);
+                                                                    setSuggestionDebounceTimer(null);
+                                                                }
+                                                            }
+                                                        }}
+                                                        className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                                                            showSuggestions
+                                                                ? isDark ? 'bg-violet-600 text-white' : 'bg-violet-600 text-white'
+                                                                : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                                        }`}
+                                                        title="Toggle real-time AI suggestions"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                                        </svg>
+                                                        <span>AI Suggestions</span>
+                                                        {suggestionsLoading && (
+                                                            <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                            </svg>
+                                                        )}
+                                                    </button>
+                                                    {suggestions.length > 0 && (
+                                                        <span className={`text-xs px-2 py-1 rounded-full ${
+                                                            isDark ? 'bg-violet-900/50 text-violet-300' : 'bg-violet-100 text-violet-700'
+                                                        }`}>
+                                                            {suggestions.length} suggestion{suggestions.length !== 1 ? 's' : ''}
+                                                        </span>
+                                                    )}
+                                                    {showSuggestions && resumeSection.trim().length > 0 && resumeSection.trim().length < 20 && (
+                                                        <span className={`text-xs ${
+                                                            isDark ? 'text-slate-400' : 'text-slate-500'
+                                                        }`}>
+                                                            Type at least 20 characters to get suggestions
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {showSuggestions && resumeSection.trim().length >= 20 && (
+                                                    <button
+                                                        onClick={() => {
+                                                            getRealTimeSuggestions(resumeSection, jobDescription);
+                                                        }}
+                                                        className={`px-3 py-1.5 text-xs rounded-lg transition-colors flex items-center gap-1 ${
+                                                            suggestionsLoading
+                                                                ? isDark ? 'bg-slate-600 text-slate-300' : 'bg-slate-200 text-slate-600'
+                                                                : isDark ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                                        }`}
+                                                        disabled={suggestionsLoading}
+                                                        title="Manually trigger suggestions"
+                                                    >
+                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                                         </svg>
-                                                    )}
-                                                </button>
-                                                {suggestions.length > 0 && (
-                                                    <span className={`text-xs px-2 py-1 rounded-full ${
-                                                        isDark ? 'bg-violet-900/50 text-violet-300' : 'bg-violet-100 text-violet-700'
-                                                    }`}>
-                                                        {suggestions.length} suggestion{suggestions.length !== 1 ? 's' : ''}
-                                                    </span>
+                                                        Analyze Now
+                                                    </button>
                                                 )}
                                             </div>
+                                            {showSuggestions && (
+                                                <p className={`text-xs mt-1 ${
+                                                    isDark ? 'text-slate-400' : 'text-slate-500'
+                                                }`}>
+                                                    💡 Suggestions appear automatically as you type, or click "Analyze Now" to get instant feedback
+                                                </p>
+                                            )}
                                         </div>
                                     )}
                                     
