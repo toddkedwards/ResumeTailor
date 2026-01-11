@@ -743,6 +743,7 @@
             const [showDashboard, setShowDashboard] = useState(false);
             const [showTemplates, setShowTemplates] = useState(false);
             const [selectedTemplate, setSelectedTemplate] = useState(null);
+            const [templateCategory, setTemplateCategory] = useState('all'); // 'all', 'Layout', 'Industry'
             const [showCoverLetter, setShowCoverLetter] = useState(false);
             const [coverLetter, setCoverLetter] = useState('');
             const [coverLetterHighlights, setCoverLetterHighlights] = useState([]);
@@ -757,41 +758,113 @@
             
             // Resume Templates
             const resumeTemplates = {
-                'Technology/Software': {
-                    name: 'Technology Professional',
+                'chronological': {
+                    name: 'Chronological Resume',
+                    category: 'Layout',
+                    description: 'Traditional format highlighting work history in reverse chronological order. Best for candidates with steady career progression.',
+                    icon: '📅',
                     contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
-                    summary: 'Experienced software professional with expertise in modern development practices and technologies. Proven track record of delivering high-quality solutions and collaborating effectively in agile environments.',
+                    summary: 'Experienced professional with a proven track record of success. Skilled in delivering results and driving organizational growth through strategic thinking and effective execution.',
                     experience: [{
                         id: Date.now(),
-                        title: 'Software Engineer',
-                        company: 'Tech Company',
+                        title: 'Job Title',
+                        company: 'Company Name',
                         location: 'City, State',
                         startDate: '01/2020',
                         endDate: '',
                         current: true,
-                        description: '• Developed and maintained scalable web applications using modern frameworks\n• Collaborated with cross-functional teams to deliver features on time\n• Implemented CI/CD pipelines and automated testing\n• Optimized application performance and reduced load times by 40%'
+                        description: '• Key achievement or responsibility\n• Another significant accomplishment\n• Quantifiable result or impact'
                     }],
                     education: [{
                         id: Date.now() + 1,
-                        degree: 'Bachelor of Science in Computer Science',
+                        degree: 'Degree Name',
                         school: 'University Name',
                         location: 'City, State',
                         graduationDate: '2019',
-                        gpa: '3.8',
-                        honors: 'Magna Cum Laude'
+                        gpa: '',
+                        honors: ''
                     }],
                     skills: [
-                        { id: Date.now() + 2, name: 'JavaScript', category: 'Technical' },
-                        { id: Date.now() + 3, name: 'React', category: 'Technical' },
-                        { id: Date.now() + 4, name: 'Node.js', category: 'Technical' },
-                        { id: Date.now() + 5, name: 'Python', category: 'Technical' },
-                        { id: Date.now() + 6, name: 'AWS', category: 'Technical' }
+                        { id: Date.now() + 2, name: 'Skill 1', category: 'Technical' },
+                        { id: Date.now() + 3, name: 'Skill 2', category: 'Technical' },
+                        { id: Date.now() + 4, name: 'Skill 3', category: 'Soft Skills' }
+                    ],
+                    certifications: [],
+                    projects: []
+                },
+                'functional': {
+                    name: 'Functional Resume',
+                    category: 'Layout',
+                    description: 'Skills-focused format emphasizing abilities and achievements. Ideal for career changers, recent graduates, or those with employment gaps.',
+                    icon: '🎯',
+                    contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
+                    summary: 'Results-driven professional with expertise in key areas. Proven ability to leverage skills and experience to achieve organizational objectives.',
+                    experience: [{
+                        id: Date.now(),
+                        title: 'Relevant Position',
+                        company: 'Company Name',
+                        location: 'City, State',
+                        startDate: '01/2020',
+                        endDate: '',
+                        current: true,
+                        description: '• Highlight relevant skills and achievements\n• Focus on transferable experience\n• Emphasize accomplishments over timeline'
+                    }],
+                    education: [{
+                        id: Date.now() + 1,
+                        degree: 'Degree Name',
+                        school: 'University Name',
+                        location: 'City, State',
+                        graduationDate: '2019',
+                        gpa: '',
+                        honors: ''
+                    }],
+                    skills: [
+                        { id: Date.now() + 2, name: 'Core Skill Area 1', category: 'Core Competencies' },
+                        { id: Date.now() + 3, name: 'Core Skill Area 2', category: 'Core Competencies' },
+                        { id: Date.now() + 4, name: 'Technical Skill', category: 'Technical' }
+                    ],
+                    certifications: [],
+                    projects: []
+                },
+                'hybrid': {
+                    name: 'Hybrid Resume',
+                    category: 'Layout',
+                    description: 'Combines chronological work history with skills section. Perfect balance for most job seekers.',
+                    icon: '⚡',
+                    contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
+                    summary: 'Versatile professional combining extensive experience with strong technical and soft skills. Proven track record of delivering results across diverse projects and teams.',
+                    experience: [{
+                        id: Date.now(),
+                        title: 'Job Title',
+                        company: 'Company Name',
+                        location: 'City, State',
+                        startDate: '01/2020',
+                        endDate: '',
+                        current: true,
+                        description: '• Key achievement with quantifiable result\n• Leadership or collaboration example\n• Technical or process improvement'
+                    }],
+                    education: [{
+                        id: Date.now() + 1,
+                        degree: 'Degree Name',
+                        school: 'University Name',
+                        location: 'City, State',
+                        graduationDate: '2019',
+                        gpa: '',
+                        honors: ''
+                    }],
+                    skills: [
+                        { id: Date.now() + 2, name: 'Technical Skill', category: 'Technical' },
+                        { id: Date.now() + 3, name: 'Soft Skill', category: 'Soft Skills' },
+                        { id: Date.now() + 4, name: 'Industry Skill', category: 'Industry-Specific' }
                     ],
                     certifications: [],
                     projects: []
                 },
                 'Marketing/Advertising': {
                     name: 'Marketing Professional',
+                    category: 'Industry',
+                    description: 'Designed for marketing, advertising, and communications roles. Highlights campaign results and brand impact.',
+                    icon: '📢',
                     contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
                     summary: 'Creative marketing professional with expertise in digital marketing, brand management, and campaign optimization. Proven ability to increase brand awareness and drive revenue growth through data-driven strategies.',
                     experience: [{
@@ -825,6 +898,9 @@
                 },
                 'Healthcare': {
                     name: 'Healthcare Professional',
+                    category: 'Industry',
+                    description: 'Tailored for healthcare workers, nurses, and medical professionals. Emphasizes clinical skills and certifications.',
+                    icon: '🏥',
                     contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
                     summary: 'Dedicated healthcare professional with extensive experience in patient care and medical administration. Committed to providing high-quality healthcare services and improving patient outcomes.',
                     experience: [{
@@ -865,6 +941,9 @@
                 },
                 'Finance/Banking': {
                     name: 'Finance Professional',
+                    category: 'Industry',
+                    description: 'Ideal for finance, banking, and accounting roles. Focuses on analytical skills and financial achievements.',
+                    icon: '💰',
                     contact: { name: '', email: '', phone: '', location: '', linkedin: '', website: '' },
                     summary: 'Analytical finance professional with expertise in financial analysis, risk management, and investment strategies. Proven track record of optimizing financial performance and supporting strategic business decisions.',
                     experience: [{
@@ -898,17 +977,34 @@
                 }
             };
             
-            function loadTemplate(templateKey) {
+            function loadTemplate(templateKey, keepExistingData = false) {
                 const template = resumeTemplates[templateKey];
                 if (template) {
-                    setFullResume({
-                        ...template,
-                        contact: { ...template.contact } // Create new object
-                    });
+                    if (keepExistingData) {
+                        // Merge template with existing data, preserving user's contact info and entries
+                        setFullResume(prev => ({
+                            ...template,
+                            contact: prev.contact.name ? prev.contact : template.contact,
+                            // Keep existing entries but use template structure as guide
+                            experience: prev.experience.length > 0 ? prev.experience : template.experience,
+                            education: prev.education.length > 0 ? prev.education : template.education,
+                            skills: prev.skills.length > 0 ? prev.skills : template.skills,
+                            certifications: prev.certifications.length > 0 ? prev.certifications : template.certifications,
+                            projects: prev.projects.length > 0 ? prev.projects : template.projects,
+                            summary: prev.summary || template.summary
+                        }));
+                        showToast('Template structure applied! Your data has been preserved.', 'success');
+                    } else {
+                        // Load template fresh
+                        setFullResume({
+                            ...template,
+                            contact: { ...template.contact } // Create new object
+                        });
+                        showToast('Template loaded! Customize it to match your experience.', 'success');
+                    }
                     setShowTemplates(false);
                     setShowResumeBuilder(true);
-                    showToast('Template loaded! Customize it to match your experience.', 'success');
-                    trackEvent('resume_template_loaded', { template: templateKey });
+                    trackEvent('resume_template_loaded', { template: templateKey, keepExistingData });
                 }
             }
             
@@ -4364,33 +4460,116 @@
                                         Choose a template to get started. You can customize it to match your experience.
                                     </p>
                                     
+                                    {/* Category Filter */}
+                                    <div className="flex gap-2 mb-6 flex-wrap">
+                                        <button
+                                            onClick={() => setTemplateCategory('all')}
+                                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                                                templateCategory === 'all'
+                                                    ? isDark ? 'bg-violet-600 text-white' : 'bg-violet-600 text-white'
+                                                    : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            All Templates
+                                        </button>
+                                        <button
+                                            onClick={() => setTemplateCategory('Layout')}
+                                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                                                templateCategory === 'Layout'
+                                                    ? isDark ? 'bg-violet-600 text-white' : 'bg-violet-600 text-white'
+                                                    : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            Layouts
+                                        </button>
+                                        <button
+                                            onClick={() => setTemplateCategory('Industry')}
+                                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                                                templateCategory === 'Industry'
+                                                    ? isDark ? 'bg-violet-600 text-white' : 'bg-violet-600 text-white'
+                                                    : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            Industries
+                                        </button>
+                                    </div>
+                                    
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {Object.entries(resumeTemplates).map(([industry, template]) => (
-                                            <button
-                                                key={industry}
-                                                onClick={() => loadTemplate(industry)}
-                                                className={`p-6 rounded-xl border text-left transition-all hover:scale-105 ${
-                                                    isDark 
-                                                        ? 'bg-slate-700/50 border-slate-600 hover:border-violet-500 hover:bg-slate-700' 
-                                                        : 'bg-slate-50 border-slate-200 hover:border-violet-300 hover:bg-slate-100'
+                                        {Object.entries(resumeTemplates)
+                                            .filter(([key, template]) => {
+                                                if (templateCategory === 'all') return true;
+                                                return template.category === templateCategory;
+                                            })
+                                            .map(([key, template]) => (
+                                            <div key={key} className="relative">
+                                                <button
+                                                    onClick={() => loadTemplate(key, false)}
+                                                    onMouseEnter={() => setSelectedTemplate(key)}
+                                                    onMouseLeave={() => setSelectedTemplate(null)}
+                                                    className={`w-full p-6 rounded-xl border text-left transition-all hover:scale-[1.02] ${
+                                                    selectedTemplate === key
+                                                        ? isDark 
+                                                            ? 'bg-violet-900/30 border-violet-500 shadow-lg' 
+                                                            : 'bg-violet-50 border-violet-300 shadow-lg'
+                                                        : isDark 
+                                                            ? 'bg-slate-700/50 border-slate-600 hover:border-violet-500 hover:bg-slate-700' 
+                                                            : 'bg-slate-50 border-slate-200 hover:border-violet-300 hover:bg-slate-100'
                                                 }`}
                                             >
-                                                <h3 className={`text-xl font-bold mb-2 ${
-                                                    isDark ? 'text-white' : 'text-slate-900'
-                                                }`}>
-                                                    {template.name}
-                                                </h3>
-                                                <p className={`text-sm mb-4 ${
-                                                    isDark ? 'text-slate-400' : 'text-slate-600'
-                                                }`}>
-                                                    {industry}
-                                                </p>
-                                                <div className={`text-sm ${
+                                                <div className="flex items-start gap-3 mb-3">
+                                                    <span className="text-3xl">{template.icon || '📄'}</span>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <h3 className={`text-xl font-bold ${
+                                                                isDark ? 'text-white' : 'text-slate-900'
+                                                            }`}>
+                                                                {template.name}
+                                                            </h3>
+                                                            {template.category && (
+                                                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                                                    template.category === 'Layout'
+                                                                        ? isDark ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'
+                                                                        : isDark ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
+                                                                }`}>
+                                                                    {template.category}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {template.description && (
+                                                            <p className={`text-sm mb-3 ${
+                                                                isDark ? 'text-slate-400' : 'text-slate-600'
+                                                            }`}>
+                                                                {template.description}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className={`text-sm font-semibold flex items-center gap-1 ${
                                                     isDark ? 'text-violet-400' : 'text-violet-600'
                                                 }`}>
-                                                    Use Template →
+                                                    Use Template
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
                                                 </div>
                                             </button>
+                                            {showResumeBuilder && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        loadTemplate(key, true);
+                                                    }}
+                                                    className={`mt-2 w-full px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                                                        isDark
+                                                            ? 'bg-slate-600 text-slate-200 hover:bg-slate-500'
+                                                            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                                    }`}
+                                                    title="Switch to this template while keeping your data"
+                                                >
+                                                    Switch Template (Keep Data)
+                                                </button>
+                                            )}
+                                            </div>
                                         ))}
                                     </div>
                                     
@@ -4423,6 +4602,23 @@
                                         Resume Builder
                                     </h2>
                                     <div className="flex gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setShowTemplates(true);
+                                                trackEvent('templates_opened_from_builder');
+                                            }}
+                                            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 ${
+                                                isDark 
+                                                    ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                            }`}
+                                            title="Browse and switch templates"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z" />
+                                            </svg>
+                                            Templates
+                                        </button>
                                         <button
                                             onClick={() => {
                                                 const resumeText = generateFullResumeText();
