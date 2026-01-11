@@ -1077,3 +1077,162 @@ IMPORTANT:
     );
   }
 });
+
+/**
+ * Get real-time suggestions for resume text
+ * Provides grammar, spelling, style, keyword, and ATS suggestions
+ */
+exports.getRealTimeSuggestions = functions.https.onCall(async (data, context) => {
+  // Verify user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated to get suggestions'
+    );
+  }
+
+  // Check rate limit (20 requests per minute for real-time suggestions)
+  await checkRateLimit(context.auth.uid, 'getRealTimeSuggestions', 20, 1);
+
+  const { text, jobDescription, suggestionTypes } = data;
+  
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Text is required'
+    );
+  }
+
+  // Get Gemini API key from config
+  const geminiApiKey = functions.config().gemini?.api_key;
+  
+  if (!geminiApiKey) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Gemini API key not configured'
+    );
+  }
+
+  const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
+
+  try {
+    // Determine which suggestions to generate
+    const types = suggestionTypes || ['grammar', 'spelling', 'style', 'keywords', 'ats'];
+    
+    const prompt = `You are an expert resume writing assistant. Analyze the following resume text and provide real-time improvement suggestions.
+
+Resume Text:
+${text}
+
+${jobDescription ? `Job Description (for keyword and ATS suggestions):\n${jobDescription}\n` : ''}
+
+Provide suggestions in the following categories (only include categories that have suggestions):
+${types.includes('grammar') ? '- Grammar: Fix grammatical errors\n' : ''}${types.includes('spelling') ? '- Spelling: Correct spelling mistakes\n' : ''}${types.includes('style') ? '- Style: Improve clarity, conciseness, and professional tone\n' : ''}${types.includes('keywords') ? '- Keywords: Suggest relevant keywords from the job description\n' : ''}${types.includes('ats') ? '- ATS: Improve ATS compatibility (avoid graphics, use standard formatting, include keywords)\n' : ''}
+
+Return your response as a JSON object with this exact structure:
+{
+  "suggestions": [
+    {
+      "type": "grammar|spelling|style|keywords|ats",
+      "severity": "error|warning|info",
+      "text": "The text that needs improvement",
+      "suggestion": "The improved version",
+      "reason": "Brief explanation of the suggestion",
+      "position": {
+        "start": 0,
+        "end": 10
+      }
+    }
+  ],
+  "summary": {
+    "totalSuggestions": 5,
+    "byType": {
+      "grammar": 2,
+      "spelling": 1,
+      "style": 1,
+      "keywords": 1,
+      "ats": 0
+    }
+  }
+}
+
+IMPORTANT:
+- Keep suggestions concise and actionable
+- Only include suggestions that are clearly needed
+- For position, estimate character positions in the text
+- Prioritize high-impact suggestions
+- Be specific about what to change and why`;
+
+    const response = await fetch(`${geminiApiUrl}?key=${geminiApiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || `API error: ${response.status}`;
+      
+      console.error('Gemini API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
+      
+      throw new functions.https.HttpsError(
+        'internal',
+        `Gemini API error: ${errorMessage}`,
+        { status: response.status, error: errorData }
+      );
+    }
+
+    const result = await response.json();
+    
+    if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+      throw new Error('Invalid response from Gemini API');
+    }
+
+    const responseText = result.candidates[0].content.parts[0].text;
+    
+    // Try to parse JSON response
+    let parsedResult;
+    try {
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsedResult = JSON.parse(jsonMatch[0]);
+      } else {
+        parsedResult = JSON.parse(responseText);
+      }
+    } catch (parseError) {
+      console.warn('Failed to parse JSON response, creating fallback structure');
+      parsedResult = {
+        suggestions: [],
+        summary: {
+          totalSuggestions: 0,
+          byType: {}
+        }
+      };
+    }
+
+    return {
+      success: true,
+      ...parsedResult
+    };
+  } catch (error) {
+    console.error('Error getting real-time suggestions:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to get real-time suggestions',
+      error.message
+    );
+  }
+});
