@@ -2452,7 +2452,18 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                     
                     // Set the tailored resume and analysis results
                     // Clean markdown formatting from the AI response
-                    const cleanedResume = cleanMarkdown(result.data.tailoredResume || '');
+                    let cleanedResume = cleanMarkdown(result.data.tailoredResume || '');
+                    
+                    // Fix any instances where AI wrote "bulletpoint" or "bullet point" instead of actual bullets
+                    // Replace common variations with actual bullet character
+                    cleanedResume = cleanedResume
+                        .replace(/\bbullet\s*point\b/gi, '•')
+                        .replace(/\bbulletpoint\b/gi, '•')
+                        .replace(/\bbullet\b/gi, '•')
+                        // Also handle cases where it might say "bullet point:" or similar
+                        .replace(/\bbullet\s*point\s*[:•]\s*/gi, '• ')
+                        .replace(/\bbulletpoint\s*[:•]\s*/gi, '• ');
+                    
                     setTailoredResume(cleanedResume);
                     setKeywordMatches(result.data.keywordMatches || null);
                     setImprovementTips(result.data.improvementTips || []);

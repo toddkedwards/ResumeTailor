@@ -696,7 +696,11 @@ IMPORTANT:
 - Include specific keywords from the job description in the keywordMatches
 - Be specific about what changed in the changes section
 - Make the tailored resume professional, ATS-friendly, and aligned with the job requirements
-- Ensure all arrays have at least some content (never empty arrays)`;
+- Ensure all arrays have at least some content (never empty arrays)
+- For lists and bullet points, use the actual bullet character (•) followed by a space, NOT the word "bulletpoint" or "bullet point"
+- DO NOT use markdown formatting (no **bold**, *italic*, # headers, etc.) in the tailoredResume field
+- Use plain text with actual bullet characters (•) for lists - example: "• First item\n• Second item"
+- The tailoredResume should be clean, professional text with proper bullet points (•) for lists, but no other markdown formatting`;
 
     const response = await fetch(`${geminiApiUrl}?key=${geminiApiKey}`, {
       method: 'POST',
@@ -936,21 +940,87 @@ exports.generateInterviewQuestions = functions.https.onCall(async (data, context
   // Check rate limit (10 requests per minute)
   await checkRateLimit(context.auth.uid, 'generateInterviewQuestions', 10, 1);
 
-  const { jobDescription, resumeText } = data;
-  
-  if (!jobDescription || typeof jobDescription !== 'string' || !jobDescription.trim()) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Job description is required'
-    );
-  }
-  
-  if (!resumeText || typeof resumeText !== 'string' || !resumeText.trim()) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Resume text is required'
-    );
-  }
+    const { jobDescription, resumeText, feedbackMode } = data;
+    
+    // If feedbackMode is true, this is a feedback request, not questions
+    if (feedbackMode) {
+      // Handle interview feedback generation
+      if (!jobDescription || typeof jobDescription !== 'string' || !jobDescription.trim()) {
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          'Feedback prompt is required'
+        );
+      }
+      
+      if (!resumeText || typeof resumeText !== 'string' || !resumeText.trim()) {
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          'User answer is required'
+        );
+      }
+      
+      // Generate feedback using the prompt as-is
+      const geminiApiKey = functions.config().gemini?.api_key;
+      if (!geminiApiKey) {
+        throw new functions.https.HttpsError('failed-precondition', 'Gemini API key not configured');
+      }
+      
+      const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
+      
+      try {
+        const response = await fetch(`${geminiApiUrl}?key=${geminiApiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: jobDescription }] }] })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new functions.https.HttpsError('internal', `Gemini API error: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        // Parse JSON from response
+        let feedback = {};
+        try {
+          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            feedback = JSON.parse(jsonMatch[0]);
+          }
+        } catch (parseError) {
+          console.warn('Failed to parse feedback JSON:', parseError);
+          // Return default structure
+          feedback = {
+            strengths: ['Good attempt'],
+            improvements: ['Could be improved'],
+            suggestedAnswer: 'Consider expanding your answer with specific examples.',
+            rating: 3
+          };
+        }
+        
+        return { success: true, feedback };
+      } catch (error) {
+        console.error('Error generating interview feedback:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to generate feedback', error.message);
+      }
+    }
+    
+    // Original interview questions generation
+    if (!jobDescription || typeof jobDescription !== 'string' || !jobDescription.trim()) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Job description is required'
+      );
+    }
+    
+    if (!resumeText || typeof resumeText !== 'string' || !resumeText.trim()) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Resume text is required'
+      );
+    }
 
   // Get Gemini API key from config
   const geminiApiKey = functions.config().gemini?.api_key;
@@ -1234,5 +1304,98 @@ IMPORTANT:
       'Failed to get real-time suggestions',
       error.message
     );
+  }
+});
+
+/**
+ * AI-Powered Job Matching
+ * Analyzes resume and provides job recommendations with match scores
+ */
+exports.findJobMatches = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to find job matches');
+  }
+
+  await checkRateLimit(context.auth.uid, 'findJobMatches', 10, 1); // 10 requests per minute
+
+  const { resumeText, location, jobType, industry } = data;
+
+  if (!resumeText || typeof resumeText !== 'string' || resumeText.trim().length < 50) {
+    throw new functions.https.HttpsError('invalid-argument', 'Resume text (min 50 characters) is required');
+  }
+
+  const geminiApiKey = functions.config().gemini?.api_key;
+  if (!geminiApiKey) {
+    throw new functions.https.HttpsError('failed-precondition', 'Gemini API key not configured');
+  }
+
+  const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
+
+  try {
+    let prompt = `You are an expert career advisor and job matching specialist. Analyze the following resume and provide job recommendations.
+
+Resume:
+${resumeText}
+
+${location ? `Preferred Location: ${location}\n` : ''}${jobType ? `Job Type: ${jobType}\n` : ''}${industry ? `Industry: ${industry}\n` : ''}
+
+Based on the resume, provide 5-10 job recommendations. For each job, include:
+1. Job Title (specific and realistic)
+2. Company Type/Industry (e.g., "Tech Startup", "Fortune 500", "Healthcare")
+3. Match Score (0-100, based on skills, experience, and qualifications)
+4. Key Skills Match (list 3-5 matching skills)
+5. Salary Range Estimate (in USD, format: "$XX,XXX - $XX,XXX" or "Entry: $XX,XXX, Senior: $XX,XXX")
+6. Why This Match (brief explanation)
+7. Growth Potential (1-5 stars)
+8. Company Research Notes (what type of companies to target)
+
+Return your response as a JSON array of job objects. Each object should have:
+- "title": string
+- "companyType": string
+- "matchScore": number (0-100)
+- "skillsMatch": array of strings
+- "salaryRange": string
+- "whyMatch": string
+- "growthPotential": number (1-5)
+- "companyNotes": string
+
+IMPORTANT:
+- Match scores should be realistic based on actual qualifications
+- Salary ranges should be based on current market rates for the role and experience level
+- Provide diverse job titles (not all the same)
+- Consider career progression opportunities
+- Keep the response directly parsable JSON.`;
+
+    const response = await fetch(`${geminiApiUrl}?key=${geminiApiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new functions.https.HttpsError('internal', `Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`);
+    }
+
+    const result = await response.json();
+    let responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    let parsedMatches = [];
+
+    try {
+      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        parsedMatches = JSON.parse(jsonMatch[0]);
+      } else {
+        parsedMatches = JSON.parse(responseText);
+      }
+    } catch (parseError) {
+      console.warn('Failed to parse JSON response for job matches, returning empty array:', parseError);
+      console.warn('Raw response text:', responseText);
+    }
+
+    return { success: true, matches: parsedMatches };
+  } catch (error) {
+    console.error('Error in findJobMatches:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to find job matches', error.message);
   }
 });
