@@ -4890,7 +4890,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                     <p className={`text-lg md:text-xl max-w-3xl mx-auto mb-10 leading-relaxed ${
                                         isDark ? 'text-slate-400' : 'text-slate-600'
                                     }`}>
-                                        Stop sending generic resumes. Our AI analyzes job descriptions and tailors your resume with the right keywords. Track applications, practice interviews, and monitor your success with comprehensive analytics—all in one powerful platform.
+                                        Stop sending generic resumes. Our AI analyzes job descriptions and tailors your resume with the right keywords. Build complete resumes, generate cover letters, track applications, practice interviews, and monitor your success with comprehensive analytics—all in one powerful platform.
                                     </p>
                                     <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
                                         <button
@@ -5208,6 +5208,58 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                                 Track application success rates, interview conversions, resume performance metrics, and compare with industry benchmarks
                                             </p>
                                         </div>
+                                        <div className={`p-8 rounded-2xl transition-all duration-300 hover:scale-105 ${
+                                            isDark 
+                                                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 hover:border-violet-600' 
+                                                : 'bg-white border border-slate-200 shadow-md hover:shadow-xl'
+                                        }`}>
+                                            <div className="text-5xl mb-4">📝</div>
+                                            <h3 className={`text-xl font-bold mb-3 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Complete Resume Builder</h3>
+                                            <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                                                Build professional resumes from scratch with drag-and-drop sections, custom colors, fonts, logos, and rich text formatting
+                                            </p>
+                                        </div>
+                                        <div className={`p-8 rounded-2xl transition-all duration-300 hover:scale-105 ${
+                                            isDark 
+                                                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 hover:border-violet-600' 
+                                                : 'bg-white border border-slate-200 shadow-md hover:shadow-xl'
+                                        }`}>
+                                            <div className="text-5xl mb-4">✉️</div>
+                                            <h3 className={`text-xl font-bold mb-3 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Cover Letter Generator</h3>
+                                            <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                                                Generate personalized cover letters tailored to each job application with AI-powered content matching
+                                            </p>
+                                        </div>
+                                        <div className={`p-8 rounded-2xl transition-all duration-300 hover:scale-105 ${
+                                            isDark 
+                                                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 hover:border-violet-600' 
+                                                : 'bg-white border border-slate-200 shadow-md hover:shadow-xl'
+                                        }`}>
+                                            <div className="text-5xl mb-4">🔍</div>
+                                            <h3 className={`text-xl font-bold mb-3 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>AI Job Matching</h3>
+                                            <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                                                Get AI-powered job recommendations based on your resume with match scores, salary ranges, and company insights
+                                            </p>
+                                        </div>
+                                        <div className={`p-8 rounded-2xl transition-all duration-300 hover:scale-105 ${
+                                            isDark 
+                                                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 hover:border-violet-600' 
+                                                : 'bg-white border border-slate-200 shadow-md hover:shadow-xl'
+                                        }`}>
+                                            <div className="text-5xl mb-4">📤</div>
+                                            <h3 className={`text-xl font-bold mb-3 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Multi-Format Export</h3>
+                                            <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                                                Export your tailored resumes to PDF, Microsoft Word, Apple Pages, or Google Docs with one click
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -5242,7 +5294,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                     <p className={`text-sm mb-8 ${
                                         isDark ? 'text-slate-500' : 'text-slate-500'
                                     }`}>
-                                        That's just $0.20 per tailored resume
+                                        That's just $0.40 per generation (resume, cover letter, or interview questions)
                                     </p>
                                     <div className="grid md:grid-cols-4 gap-4 mb-8 max-w-4xl mx-auto">
                                         <div className={`p-5 rounded-xl ${
@@ -5348,7 +5400,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                                 isDark ? 'text-white' : 'text-slate-900'
                                             }`}>How many credits do I need?</h3>
                                             <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
-                                                Each resume tailoring uses 1 credit. With 5 credits for $2.00, you can tailor 5 different resumes.
+                                                Each generation (resume tailoring, cover letter, or interview questions) uses 1 credit. With 5 credits for $2.00, you get 5 generations across all features.
                                             </p>
                                         </div>
                                         <div className={`p-6 rounded-xl ${
@@ -5379,6 +5431,36 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                             }`}>What analytics do you provide?</h3>
                                             <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
                                                 Track your application success rates, interview conversion metrics, resume performance over time, and see how you compare to industry benchmarks.
+                                            </p>
+                                        </div>
+                                        <div className={`p-6 rounded-xl ${
+                                            isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'
+                                        }`}>
+                                            <h3 className={`text-lg font-bold mb-2 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Can I build resumes from scratch?</h3>
+                                            <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                                                Yes! Our complete Resume Builder lets you create professional resumes from scratch with drag-and-drop sections, custom styling, and rich text formatting.
+                                            </p>
+                                        </div>
+                                        <div className={`p-6 rounded-xl ${
+                                            isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'
+                                        }`}>
+                                            <h3 className={`text-lg font-bold mb-2 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Do you generate cover letters?</h3>
+                                            <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                                                Absolutely! Generate personalized cover letters tailored to each job application. Our AI matches your experience to job requirements for compelling cover letters.
+                                            </p>
+                                        </div>
+                                        <div className={`p-6 rounded-xl ${
+                                            isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'
+                                        }`}>
+                                            <h3 className={`text-lg font-bold mb-2 ${
+                                                isDark ? 'text-white' : 'text-slate-900'
+                                            }`}>Can you help me find jobs?</h3>
+                                            <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
+                                                Yes! Our AI Job Matching feature analyzes your resume and recommends relevant job opportunities with match scores, salary information, and company details.
                                             </p>
                                         </div>
                                         <div className={`p-6 rounded-xl ${
