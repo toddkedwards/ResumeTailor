@@ -20,6 +20,13 @@ try {
 // Get app ID from config, default to 'resume-tailor-v1' to match frontend
 const APP_ID = functions.config().app?.id || 'resume-tailor-v1';
 
+// Helper function to check if user is admin
+function isAdminUser(userEmail) {
+  const adminEmail = functions.config().admin?.email || '';
+  if (!adminEmail || !userEmail) return false;
+  return userEmail.toLowerCase().trim() === adminEmail.toLowerCase().trim();
+}
+
 /**
  * Create Stripe Checkout Session
  * This function creates a Stripe Checkout session for one-time credit purchases
@@ -623,8 +630,12 @@ exports.generateTailoredResume = functions.https.onCall(async (data, context) =>
     );
   }
 
-  // Check rate limit (10 requests per minute)
-  await checkRateLimit(context.auth.uid, 'generateTailoredResume', 10, 1);
+  // Check if admin (skip rate limit for admins)
+  const isAdmin = isAdminUser(context.auth.token.email);
+  if (!isAdmin) {
+    // Check rate limit (10 requests per minute) - only for non-admins
+    await checkRateLimit(context.auth.uid, 'generateTailoredResume', 10, 1);
+  }
 
   const { jobDescription, resumeSection, sectionType, industry } = data;
   
@@ -802,8 +813,12 @@ exports.generateCoverLetter = functions.https.onCall(async (data, context) => {
     );
   }
 
-  // Check rate limit (10 requests per minute)
-  await checkRateLimit(context.auth.uid, 'generateCoverLetter', 10, 1);
+  // Check if admin (skip rate limit for admins)
+  const isAdmin = isAdminUser(context.auth.token.email);
+  if (!isAdmin) {
+    // Check rate limit (10 requests per minute) - only for non-admins
+    await checkRateLimit(context.auth.uid, 'generateCoverLetter', 10, 1);
+  }
 
   const { jobDescription, resumeText, applicantName, companyName } = data;
   
@@ -937,8 +952,12 @@ exports.generateInterviewQuestions = functions.https.onCall(async (data, context
     );
   }
 
-  // Check rate limit (10 requests per minute)
-  await checkRateLimit(context.auth.uid, 'generateInterviewQuestions', 10, 1);
+  // Check if admin (skip rate limit for admins)
+  const isAdmin = isAdminUser(context.auth.token.email);
+  if (!isAdmin) {
+    // Check rate limit (10 requests per minute) - only for non-admins
+    await checkRateLimit(context.auth.uid, 'generateInterviewQuestions', 10, 1);
+  }
 
     const { jobDescription, resumeText, feedbackMode } = data;
     
@@ -1161,8 +1180,12 @@ exports.getRealTimeSuggestions = functions.https.onCall(async (data, context) =>
     );
   }
 
-  // Check rate limit (20 requests per minute for real-time suggestions)
-  await checkRateLimit(context.auth.uid, 'getRealTimeSuggestions', 20, 1);
+  // Check if admin (skip rate limit for admins)
+  const isAdmin = isAdminUser(context.auth.token.email);
+  if (!isAdmin) {
+    // Check rate limit (20 requests per minute for real-time suggestions) - only for non-admins
+    await checkRateLimit(context.auth.uid, 'getRealTimeSuggestions', 20, 1);
+  }
 
   const { text, jobDescription, suggestionTypes } = data;
   
@@ -1316,7 +1339,12 @@ exports.findJobMatches = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to find job matches');
   }
 
-  await checkRateLimit(context.auth.uid, 'findJobMatches', 10, 1); // 10 requests per minute
+  // Check if admin (skip rate limit for admins)
+  const isAdmin = isAdminUser(context.auth.token.email);
+  if (!isAdmin) {
+    // Check rate limit (10 requests per minute) - only for non-admins
+    await checkRateLimit(context.auth.uid, 'findJobMatches', 10, 1);
+  }
 
   const { resumeText, location, jobType, industry } = data;
 

@@ -298,6 +298,10 @@
         const STRIPE_PUBLISHABLE_KEY = 'pk_test_51RbOo8KfMIBsUfylIZIdikgVnL7C1Mfdj61d8AJj3splHLHAloyepn6y4Olte2QtGviWpBE8OuYqN6F20LKwLJQl00aZ5sdgj0';
         const STRIPE_PRICE_ID = 'price_1Skud7QQl8oxreSlbAkOS13N'; // $2.00 for 5 credits - UPDATE THIS with your actual Stripe price ID for $2.00
         
+        // Admin Configuration - Set your admin email here (also set in Firebase Functions config)
+        // This account will have unlimited free generations
+        const ADMIN_EMAIL = 'toddkedwards@gmail.com';
+        
         // Firebase initialization
         let app, auth, db, functions;
         let currentUserId = null;
@@ -472,8 +476,22 @@
         }
         
         async function checkUsageLimit() {
+            // Check if user is admin (bypass credit checks)
+            const isAdmin = user && user.email && ADMIN_EMAIL && 
+                           user.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+            
+            if (isAdmin) {
+                return { 
+                    canGenerate: true, 
+                    remaining: 9999, // Show unlimited
+                    message: 'Admin account - Unlimited generations',
+                    isFree: true,
+                    isAdmin: true
+                };
+            }
+            
             // No free generations - only credits
-                const userData = await getUserSubscriptionData();
+            const userData = await getUserSubscriptionData();
             if (!userData) {
                 return { 
                     canGenerate: false, 
@@ -490,7 +508,7 @@
                 return { 
                     canGenerate: true, 
                     remaining: credits, 
-                                    message: `${credits} credit${credits !== 1 ? 's' : ''} available`,
+                    message: `${credits} credit${credits !== 1 ? 's' : ''} available`,
                     isFree: false 
                 };
             }
@@ -514,6 +532,10 @@
                 const userData = userDoc.exists() ? userDoc.data() : {};
                 const credits = userData.credits ?? 0;
                 
+                // Check if user is admin (skip credit deduction)
+                const isAdmin = user && user.email && ADMIN_EMAIL && 
+                               user.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+                
                 let updateData = {
                     lastGenerationDate: serverTimestamp(),
                 };
@@ -526,12 +548,17 @@
                 const currentCreditsUsed = userData.creditsUsed || 0;
                 updateData.creditsUsed = currentCreditsUsed + 1;
                 
-                // Deduct credit (no free generations)
-                if (credits > 0) {
-                    updateData.credits = credits - 1;
+                // Deduct credit (skip for admin accounts)
+                if (!isAdmin) {
+                    if (credits > 0) {
+                        updateData.credits = credits - 1;
+                    } else {
+                        // Should not happen if checkUsageLimit worked correctly
+                        throw new Error('No credits available');
+                    }
                 } else {
-                    // Should not happen if checkUsageLimit worked correctly
-                    throw new Error('No credits available');
+                    // Admin: don't deduct credits, keep existing credits value (or set to 9999)
+                    updateData.credits = 9999; // Set to unlimited for admin
                 }
                 
                 console.log('incrementUsage: Updating with data', updateData);
@@ -542,7 +569,7 @@
                 } else {
                     await setDoc(userRef, {
                         ...updateData,
-                        credits: updateData.credits ?? 0,
+                        credits: isAdmin ? 9999 : (updateData.credits ?? 0),
                         hasPaidOnce: false,
                         totalGenerations: 1,
                         creditsUsed: 1,
@@ -551,6 +578,16 @@
                     });
                     console.log('incrementUsage: Created new document');
                 }
+                
+                // Update local state
+                const updatedCredits = isAdmin ? 9999 : updateData.credits;
+                setUsageLimit({
+                    canGenerate: true,
+                    remaining: updatedCredits,
+                    message: isAdmin ? 'Admin account - Unlimited generations' : `${updatedCredits} credit${updatedCredits !== 1 ? 's' : ''} available`,
+                    isFree: isAdmin,
+                    isAdmin: isAdmin
+                });
                 
                 // Verify the update
                 const verifyDoc = await getDoc(userRef);
@@ -5481,18 +5518,24 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                         )}
                                         <button
                                             onClick={() => {
-                                                trackEvent('pricing_modal_opened');
-                                                setShowPricingModal(true);
+                                                if (!usageLimit?.isAdmin) {
+                                                    trackEvent('pricing_modal_opened');
+                                                    setShowPricingModal(true);
+                                                }
                                             }}
                                             className={`px-3 py-1.5 text-xs rounded-lg transition-colors flex items-center gap-1.5 min-h-[36px] ${
                                                 isDark 
                                                     ? 'bg-slate-700 text-white hover:bg-slate-600' 
                                                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                             }`}
-                                            title="Credits remaining - Click to buy more"
+                                            title={usageLimit?.isAdmin ? "Admin account - Unlimited" : "Credits remaining - Click to buy more"}
                                         >
-                                            <span className="font-medium hidden sm:inline">Credits</span>
-                                            <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{credits}</span>
+                                            <span className="font-medium hidden sm:inline">
+                                                {usageLimit?.isAdmin ? 'Admin' : 'Credits'}
+                                            </span>
+                                            <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                                {usageLimit?.isAdmin ? '∞' : credits}
+                                            </span>
                                         </button>
                                         <button
                                             onClick={() => {
@@ -5688,8 +5731,10 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                     
                                     <button
                                         onClick={() => {
-                                            trackEvent('pricing_modal_opened');
-                                            setShowPricingModal(true);
+                                            if (!usageLimit?.isAdmin) {
+                                                trackEvent('pricing_modal_opened');
+                                                setShowPricingModal(true);
+                                            }
                                             setShowMobileMenu(false);
                                         }}
                                         className={`px-3 py-1.5 text-xs rounded-lg transition-colors flex items-center gap-2 min-h-[36px] ${
@@ -5698,8 +5743,12 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                         }`}
                                     >
-                                        <span className="font-medium">Credits:</span>
-                                        <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{credits}</span>
+                                        <span className="font-medium">
+                                            {usageLimit?.isAdmin ? 'Admin' : 'Credits'}:
+                                        </span>
+                                        <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                            {usageLimit?.isAdmin ? '∞' : credits}
+                                        </span>
                                     </button>
                                     
                                     <button
