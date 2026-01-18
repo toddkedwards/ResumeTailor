@@ -708,10 +708,13 @@ IMPORTANT:
 - Be specific about what changed in the changes section
 - Make the tailored resume professional, ATS-friendly, and aligned with the job requirements
 - Ensure all arrays have at least some content (never empty arrays)
-- For lists and bullet points, use the actual bullet character (•) followed by a space, NOT the word "bulletpoint" or "bullet point"
-- DO NOT use markdown formatting (no **bold**, *italic*, # headers, etc.) in the tailoredResume field
-- Use plain text with actual bullet characters (•) for lists - example: "• First item\n• Second item"
-- The tailoredResume should be clean, professional text with proper bullet points (•) for lists, but no other markdown formatting`;
+- For lists and bullet points, ALWAYS use the actual bullet character (•) followed by a space
+- NEVER write the words "bullet", "bulletpoint", "bullet point", or any variation - use the actual character (•)
+- DO NOT use markdown formatting (no **bold**, *italic*, # headers, -, *, + for bullets, etc.) in the tailoredResume field
+- Use plain text with actual bullet characters (•) for lists - example: "• First item\n• Second item\n• Third item"
+- If the original resume has bullet points, preserve them using the bullet character (•)
+- The tailoredResume should be clean, professional text with proper bullet points (•) for lists, but no other markdown formatting
+- IMPORTANT: Every list item must start with the bullet character (•) followed by a space, not with dashes (-), asterisks (*), or the word "bullet"`;
 
     const response = await fetch(`${geminiApiUrl}?key=${geminiApiKey}`, {
       method: 'POST',

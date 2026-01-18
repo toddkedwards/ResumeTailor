@@ -2574,7 +2574,12 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                         .replace(/\bbullet\b/gi, '•')
                         // Also handle cases where it might say "bullet point:" or similar
                         .replace(/\bbullet\s*point\s*[:•]\s*/gi, '• ')
-                        .replace(/\bbulletpoint\s*[:•]\s*/gi, '• ');
+                        .replace(/\bbulletpoint\s*[:•]\s*/gi, '• ')
+                        // Convert any remaining markdown-style bullets (-, *, +) to actual bullets
+                        .replace(/^(\s*)[-*+]\s+/gm, '$1• ')
+                        // Ensure bullet points have proper spacing (bullet + space)
+                        .replace(/•([^\s\n])/g, '• $1')
+                        .replace(/•\s{2,}/g, '• ');
                     
                     setTailoredResume(cleanedResume);
                     setKeywordMatches(result.data.keywordMatches || null);
@@ -4338,9 +4343,15 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                 if (!text || typeof text !== 'string') return text;
                 
                 // First, protect bullet points by temporarily replacing them
-                // Bullet points are: * at start of line, or • anywhere
+                // Bullet points can be: - at start of line, * at start of line, + at start of line, or • anywhere
                 const bulletPlaceholder = '___BULLET_POINT___';
-                const protectedText = text.replace(/^(\s*)[*•]\s+/gm, (match, indent) => {
+                // Protect all bullet point formats: -, *, +, • (markdown list indicators)
+                // Match at start of line with optional indentation
+                let protectedText = text.replace(/^(\s*)([-*+•])\s+/gm, (match, indent, bullet) => {
+                    return indent + bulletPlaceholder + ' ';
+                });
+                // Also protect numbered lists (1. item, 2. item) but convert to bullets for consistency
+                protectedText = protectedText.replace(/^(\s*)\d+\.\s+/gm, (match, indent) => {
                     return indent + bulletPlaceholder + ' ';
                 });
                 
