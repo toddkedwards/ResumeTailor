@@ -322,6 +322,8 @@
         // Firebase initialization
         let app, auth, db, functions;
         let currentUserId = null;
+        // Module-level user ref for functions defined outside component
+        let userRef = { current: null };
         
         function initializeFirebase() {
             if (!FIREBASE_CONFIG || typeof FIREBASE_CONFIG !== 'object') {
@@ -494,8 +496,18 @@
         
         async function checkUsageLimit() {
             // Check if user is admin (bypass credit checks)
-            // Safely check user state - it might not be available yet
-            const currentUser = user; // Capture user state at function call time
+            // Use ref to get current user (works in callbacks/intervals)
+            const currentUser = userRef.current || user;
+            
+            if (!currentUser) {
+                return {
+                    canGenerate: false,
+                    remaining: 0,
+                    message: 'Please sign in to check credits',
+                    isFree: false
+                };
+            }
+            
             const isAdmin = currentUser && currentUser.email && ADMIN_EMAIL && 
                            currentUser.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
             
@@ -552,7 +564,8 @@
                 const credits = userData.credits ?? 0;
                 
                 // Check if user is admin (skip credit deduction)
-                const currentUser = user; // Capture user state at function call time
+                // Use ref to get current user (works in callbacks/intervals)
+                const currentUser = userRef.current || user;
                 const isAdmin = currentUser && currentUser.email && ADMIN_EMAIL && 
                                currentUser.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
                 
@@ -819,6 +832,11 @@
             
             // Subscription and auth state
             const [user, setUser] = useState(null);
+            // Keep module-level ref in sync with state (for functions outside component)
+            React.useEffect(() => {
+                userRef.current = user;
+            }, [user]);
+            
             const [subscriptionData, setSubscriptionData] = useState(null);
             const [usageLimit, setUsageLimit] = useState({ canGenerate: true, remaining: 5, message: '' });
             const [showAuthModal, setShowAuthModal] = useState(false);
@@ -1428,18 +1446,21 @@
                         });
                         
                         // Update usage limit (with error handling)
-                        checkUsageLimit().then(limit => {
-                            setUsageLimit(limit);
-                        }).catch(error => {
-                            console.error('Error checking usage limit:', error);
-                            // Set default limit on error
-                            setUsageLimit({
-                                canGenerate: false,
-                                remaining: 0,
-                                message: 'Unable to check credits. Please refresh.',
-                                isFree: false
+                        // Only check if user is still available via ref
+                        if (userRef.current) {
+                            checkUsageLimit().then(limit => {
+                                setUsageLimit(limit);
+                            }).catch(error => {
+                                console.error('Error checking usage limit:', error);
+                                // Set default limit on error
+                                setUsageLimit({
+                                    canGenerate: false,
+                                    remaining: 0,
+                                    message: 'Unable to check credits. Please refresh.',
+                                    isFree: false
+                                });
                             });
-                        });
+                        }
                     }
                 }, (error) => {
                     console.error('Error in real-time credit listener:', error);
@@ -1675,13 +1696,18 @@
             
             useEffect(() => {
                 // Refresh usage limit periodically
-                if (firebaseReady && currentUserId) {
+                if (firebaseReady && currentUserId && user) {
                     const interval = setInterval(async () => {
                         try {
-                        const limit = await checkUsageLimit();
-                        setUsageLimit(limit);
-                        const userData = await getUserSubscriptionData();
-                        setSubscriptionData(userData);
+                            // Only refresh if user is still logged in (check via ref)
+                            if (!userRef.current) {
+                                clearInterval(interval);
+                                return;
+                            }
+                            const limit = await checkUsageLimit();
+                            setUsageLimit(limit);
+                            const userData = await getUserSubscriptionData();
+                            setSubscriptionData(userData);
                         } catch (error) {
                             console.error('Error refreshing subscription data:', error);
                             // Don't show error toast on background refresh to avoid annoying users
@@ -1690,7 +1716,7 @@
                     
                     return () => clearInterval(interval);
                 }
-            }, [firebaseReady, currentUserId]);
+            }, [firebaseReady, currentUserId, user]);
             
             // Enhanced Analytics Tracking Helper
             const trackEvent = (eventName, eventData = {}) => {
