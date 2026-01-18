@@ -82,8 +82,25 @@
     <!-- jsPDF for better PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <!-- docx library for .docx export -->
-    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
+    <!-- docx library for .docx export - loaded dynamically to avoid MIME type issues -->
+    <script>
+        // Load docx library dynamically as ES module
+        (async function() {
+            try {
+                const docxModule = await import('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js');
+                window.docx = docxModule;
+            } catch (err) {
+                console.warn('Could not load docx library:', err);
+                // Fallback: try alternative CDN
+                try {
+                    const docxModule = await import('https://unpkg.com/docx@8.5.0/build/index.js');
+                    window.docx = docxModule;
+                } catch (err2) {
+                    console.warn('Could not load docx library from alternative CDN:', err2);
+                }
+            }
+        })();
+    </script>
     
     <!-- JSZip for Pages format support -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -477,8 +494,10 @@
         
         async function checkUsageLimit() {
             // Check if user is admin (bypass credit checks)
-            const isAdmin = user && user.email && ADMIN_EMAIL && 
-                           user.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+            // Safely check user state - it might not be available yet
+            const currentUser = user; // Capture user state at function call time
+            const isAdmin = currentUser && currentUser.email && ADMIN_EMAIL && 
+                           currentUser.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
             
             if (isAdmin) {
                 return { 
@@ -533,8 +552,9 @@
                 const credits = userData.credits ?? 0;
                 
                 // Check if user is admin (skip credit deduction)
-                const isAdmin = user && user.email && ADMIN_EMAIL && 
-                               user.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+                const currentUser = user; // Capture user state at function call time
+                const isAdmin = currentUser && currentUser.email && ADMIN_EMAIL && 
+                               currentUser.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
                 
                 let updateData = {
                     lastGenerationDate: serverTimestamp(),
@@ -1407,9 +1427,18 @@
                             hasPaidOnce: data.hasPaidOnce || false,
                         });
                         
-                        // Update usage limit
+                        // Update usage limit (with error handling)
                         checkUsageLimit().then(limit => {
                             setUsageLimit(limit);
+                        }).catch(error => {
+                            console.error('Error checking usage limit:', error);
+                            // Set default limit on error
+                            setUsageLimit({
+                                canGenerate: false,
+                                remaining: 0,
+                                message: 'Unable to check credits. Please refresh.',
+                                isFree: false
+                            });
                         });
                     }
                 }, (error) => {
