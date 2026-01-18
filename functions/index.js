@@ -1427,3 +1427,72 @@ IMPORTANT:
     throw new functions.https.HttpsError('internal', 'Failed to find job matches', error.message);
   }
 });
+
+/**
+ * Submit user feedback
+ * Stores feedback in Firestore and optionally sends email notification
+ */
+exports.submitFeedback = functions.https.onCall(async (data, context) => {
+  // Verify user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated to submit feedback'
+    );
+  }
+
+  const { type, message, rating } = data;
+  
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Feedback message is required'
+    );
+  }
+
+  const userId = context.auth.uid;
+  const userEmail = context.auth.token.email || '';
+  const APP_ID = functions.config().app?.id || 'resume-tailor-v1';
+
+  try {
+    // Store feedback in Firestore
+    const feedbackRef = admin.firestore().collection(`artifacts/${APP_ID}/feedback`).doc();
+    
+    await feedbackRef.set({
+      userId: userId,
+      userEmail: userEmail,
+      type: type || 'other',
+      message: message.trim(),
+      rating: rating || 0,
+      status: 'new',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: {
+        userAgent: context.rawRequest?.headers?.['user-agent'] || 'unknown',
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    // Optional: Send email notification to admin
+    // You can add email sending logic here using SendGrid, Mailgun, or Firebase Extensions
+    // For now, we'll just log it
+    console.log('Feedback submitted:', {
+      userId,
+      userEmail,
+      type,
+      rating,
+      messageLength: message.length
+    });
+
+    return {
+      success: true,
+      message: 'Feedback submitted successfully'
+    };
+  } catch (error) {
+    console.error('Error submitting feedback:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to submit feedback',
+      error.message
+    );
+  }
+});
