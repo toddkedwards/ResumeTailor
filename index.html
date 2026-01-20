@@ -949,6 +949,7 @@
             // Job Portal Integration state
             const [showJobPortals, setShowJobPortals] = useState(false);
             const [showMobileMenu, setShowMobileMenu] = useState(false);
+            const [showUserMenu, setShowUserMenu] = useState(false);
             const [showFeedbackModal, setShowFeedbackModal] = useState(false);
             const [feedbackType, setFeedbackType] = useState('feature_request'); // bug, feature_request, improvement, other
             const [feedbackMessage, setFeedbackMessage] = useState('');
@@ -1995,13 +1996,20 @@
                             setShowExportDropdown(false);
                         }
                     }
+                    // Check if click is outside user menu dropdown
+                    if (showUserMenu) {
+                        const userMenu = document.querySelector('[data-user-menu]');
+                        if (userMenu && !userMenu.contains(e.target)) {
+                            setShowUserMenu(false);
+                        }
+                    }
                 };
                 
-                if (showCopyDropdown || showExportDropdown) {
+                if (showCopyDropdown || showExportDropdown || showUserMenu) {
                     document.addEventListener('mousedown', handleClickOutside);
                     return () => document.removeEventListener('mousedown', handleClickOutside);
                 }
-            }, [showCopyDropdown, showExportDropdown]);
+            }, [showCopyDropdown, showExportDropdown, showUserMenu]);
             
             // Load recent job descriptions and resumes on mount
             useEffect(() => {
@@ -5614,13 +5622,63 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                             <div className="hidden md:flex items-center gap-2">
                                 {user ? (
                                     <>
-                                        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
-                                            <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                            </svg>
-                                            <div className="text-right">
-                                                <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{user.email?.split('@')[0]}</div>
-                                            </div>
+                                        {/* User Menu Dropdown */}
+                                        <div className="relative" data-user-menu>
+                                            <button
+                                                onClick={() => setShowUserMenu(!showUserMenu)}
+                                                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                                                    showUserMenu
+                                                        ? (isDark ? 'bg-slate-700' : 'bg-slate-200')
+                                                        : (isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100')
+                                                }`}
+                                                aria-label="User menu"
+                                                aria-expanded={showUserMenu}
+                                            >
+                                                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                </svg>
+                                                <div className="text-right">
+                                                    <div className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{user.email?.split('@')[0]}</div>
+                                                </div>
+                                                <svg className={`w-3 h-3 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                            
+                                            {/* Dropdown Menu */}
+                                            {showUserMenu && (
+                                                <div className={`absolute top-full left-0 mt-1 w-48 rounded-lg shadow-lg border z-50 animate-fade-in ${
+                                                    isDark 
+                                                        ? 'bg-slate-800 border-slate-700' 
+                                                        : 'bg-white border-slate-200'
+                                                }`}>
+                                                    <div className="py-1">
+                                                        {/* User Email */}
+                                                        <div className={`px-4 py-2 border-b ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                                                            <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Signed in as</div>
+                                                            <div className={`text-sm font-medium mt-0.5 ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>{user.email}</div>
+                                                        </div>
+                                                        
+                                                        {/* Sign Out Option */}
+                                                        <button
+                                                            onClick={() => {
+                                                                setShowUserMenu(false);
+                                                                handleSignOut();
+                                                            }}
+                                                            className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center gap-2 ${
+                                                                isDark 
+                                                                    ? 'text-red-400 hover:bg-slate-700 hover:text-red-300' 
+                                                                    : 'text-red-600 hover:bg-red-50 hover:text-red-700'
+                                                            }`}
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                                            </svg>
+                                                            Sign Out
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <button
                                             onClick={() => {
@@ -5792,16 +5850,6 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                         >
                                             <span className="hidden sm:inline">Buy ($2.00)</span>
                                             <span className="sm:hidden">Buy</span>
-                                        </button>
-                                        <button
-                                            onClick={handleSignOut}
-                                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors min-h-[36px] ${
-                                                isDark 
-                                                    ? 'bg-red-600 text-white hover:bg-red-700' 
-                                                    : 'bg-red-500 text-white hover:bg-red-600'
-                                            }`}
-                                        >
-                                            Sign Out
                                         </button>
                                     </>
                                 ) : (
