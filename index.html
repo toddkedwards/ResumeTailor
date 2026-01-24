@@ -2664,20 +2664,29 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                     // Clean markdown formatting from the AI response
                     let cleanedResume = cleanMarkdown(result.data.tailoredResume || '');
                     
-                    // Fix any instances where AI wrote "bulletpoint" or "bullet point" instead of actual bullets
-                    // Replace common variations with actual bullet character
+                    // Aggressively fix any instances where AI wrote "bulletpoint" or "bullet point" instead of actual bullets
+                    // This is a comprehensive fix for all possible variations
                     cleanedResume = cleanedResume
-                        .replace(/\bbullet\s*point\b/gi, '•')
-                        .replace(/\bbulletpoint\b/gi, '•')
-                        .replace(/\bbullet\b/gi, '•')
-                        // Also handle cases where it might say "bullet point:" or similar
-                        .replace(/\bbullet\s*point\s*[:•]\s*/gi, '• ')
-                        .replace(/\bbulletpoint\s*[:•]\s*/gi, '• ')
+                        // First, handle all text variations of "bullet point"
+                        .replace(/\bbullet\s*point\s*[:•\-*]?\s*/gi, '• ')
+                        .replace(/\bbulletpoint\s*[:•\-*]?\s*/gi, '• ')
+                        .replace(/\bbullet\s*[:•\-*]?\s*/gi, '• ')
+                        .replace(/\bbullet\s*points?\s*/gi, '• ')
+                        .replace(/\bbulletpoints?\s*/gi, '• ')
+                        // Handle cases where it says "bullet point" followed by text
+                        .replace(/\bbullet\s*point\s*([A-Za-z])/gi, '• $1')
+                        .replace(/\bbulletpoint\s*([A-Za-z])/gi, '• $1')
                         // Convert any remaining markdown-style bullets (-, *, +) to actual bullets
                         .replace(/^(\s*)[-*+]\s+/gm, '$1• ')
+                        // Also handle bullets in the middle of lines (sometimes AI puts them there)
+                        .replace(/\s+[-*+]\s+/g, ' • ')
                         // Ensure bullet points have proper spacing (bullet + space)
-                        .replace(/•([^\s\n])/g, '• $1')
-                        .replace(/•\s{2,}/g, '• ');
+                        .replace(/•([^\s\n•])/g, '• $1')
+                        .replace(/•\s{2,}/g, '• ')
+                        // Fix cases where bullet might be missing space after
+                        .replace(/([^\s])•/g, '$1 •')
+                        // Normalize all bullets to ensure consistency
+                        .replace(/[•◦▪▫‣⁃]/g, '•');
                     
                     setTailoredResume(cleanedResume);
                     setKeywordMatches(result.data.keywordMatches || null);
@@ -4440,13 +4449,27 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
             function cleanMarkdown(text) {
                 if (!text || typeof text !== 'string') return text;
                 
-                // First, protect bullet points by temporarily replacing them
+                // First, aggressively fix any "bulletpoint" text variations BEFORE protecting bullets
+                text = text
+                    .replace(/\bbullet\s*point\s*[:•\-*]?\s*/gi, '• ')
+                    .replace(/\bbulletpoint\s*[:•\-*]?\s*/gi, '• ')
+                    .replace(/\bbullet\s*[:•\-*]?\s*/gi, '• ')
+                    .replace(/\bbullet\s*points?\s*/gi, '• ')
+                    .replace(/\bbulletpoints?\s*/gi, '• ')
+                    .replace(/\bbullet\s*point\s*([A-Za-z])/gi, '• $1')
+                    .replace(/\bbulletpoint\s*([A-Za-z])/gi, '• $1');
+                
+                // Protect bullet points by temporarily replacing them
                 // Bullet points can be: - at start of line, * at start of line, + at start of line, or • anywhere
                 const bulletPlaceholder = '___BULLET_POINT___';
                 // Protect all bullet point formats: -, *, +, • (markdown list indicators)
                 // Match at start of line with optional indentation
                 let protectedText = text.replace(/^(\s*)([-*+•])\s+/gm, (match, indent, bullet) => {
                     return indent + bulletPlaceholder + ' ';
+                });
+                // Also protect bullets in the middle of lines (sometimes they appear there)
+                protectedText = protectedText.replace(/(\s+)([-*+•])(\s+)/g, (match, before, bullet, after) => {
+                    return before + bulletPlaceholder + after;
                 });
                 // Also protect numbered lists (1. item, 2. item) but convert to bullets for consistency
                 protectedText = protectedText.replace(/^(\s*)\d+\.\s+/gm, (match, indent) => {
@@ -4481,6 +4504,14 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                     .replace(/__/g, '')
                     // Restore bullet points (convert placeholder back to • for consistency)
                     .replace(new RegExp(bulletPlaceholder, 'g'), '•')
+                    // Convert any remaining markdown bullets that weren't protected
+                    .replace(/^(\s*)[-*+]\s+/gm, '$1• ')
+                    .replace(/\s+[-*+]\s+/g, ' • ')
+                    // Normalize all bullet characters to •
+                    .replace(/[•◦▪▫‣⁃]/g, '•')
+                    // Ensure proper spacing after bullets
+                    .replace(/•([^\s\n•])/g, '• $1')
+                    .replace(/•\s{2,}/g, '• ')
                     // Clean up extra spaces that might result (but preserve line breaks)
                     .replace(/[ \t]+/g, ' ')
                     .replace(/\n[ \t]+/g, '\n')

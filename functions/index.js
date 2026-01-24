@@ -708,13 +708,17 @@ IMPORTANT:
 - Be specific about what changed in the changes section
 - Make the tailored resume professional, ATS-friendly, and aligned with the job requirements
 - Ensure all arrays have at least some content (never empty arrays)
-- For lists and bullet points, ALWAYS use the actual bullet character (•) followed by a space
-- NEVER write the words "bullet", "bulletpoint", "bullet point", or any variation - use the actual character (•)
-- DO NOT use markdown formatting (no **bold**, *italic*, # headers, -, *, + for bullets, etc.) in the tailoredResume field
-- Use plain text with actual bullet characters (•) for lists - example: "• First item\n• Second item\n• Third item"
-- If the original resume has bullet points, preserve them using the bullet character (•)
-- The tailoredResume should be clean, professional text with proper bullet points (•) for lists, but no other markdown formatting
-- IMPORTANT: Every list item must start with the bullet character (•) followed by a space, not with dashes (-), asterisks (*), or the word "bullet"`;
+CRITICAL BULLET POINT RULES - FOLLOW EXACTLY:
+- For ANY list or bulleted content, you MUST use the actual Unicode bullet character (•) followed by a space
+- NEVER, EVER write the words "bullet", "bulletpoint", "bullet point", "bullet:", "bullet -", or ANY variation
+- NEVER use dashes (-), asterisks (*), plus signs (+), or any other characters for bullets
+- ALWAYS use the exact character: • (Unicode U+2022) followed by a space
+- Example of CORRECT format: "• First item\n• Second item\n• Third item"
+- Example of WRONG format: "- First item" or "* First item" or "bullet point: First item"
+- If the original resume has bullet points, you MUST preserve them using the • character
+- The tailoredResume field must contain ONLY plain text with • characters for bullets - NO markdown, NO special formatting
+- Every single list item MUST start with • followed by a space
+- If you see any list-like content, convert it to use • characters immediately`;
 
     const response = await fetch(`${geminiApiUrl}?key=${geminiApiKey}`, {
       method: 'POST',
