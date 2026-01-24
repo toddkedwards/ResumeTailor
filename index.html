@@ -950,6 +950,8 @@
             const [showJobPortals, setShowJobPortals] = useState(false);
             const [showMobileMenu, setShowMobileMenu] = useState(false);
             const [showUserMenu, setShowUserMenu] = useState(false);
+            const [showJobsMenu, setShowJobsMenu] = useState(false);
+            const [showResumeMenu, setShowResumeMenu] = useState(false);
             const [showFeedbackModal, setShowFeedbackModal] = useState(false);
             const [feedbackType, setFeedbackType] = useState('feature_request'); // bug, feature_request, improvement, other
             const [feedbackMessage, setFeedbackMessage] = useState('');
@@ -2022,13 +2024,27 @@
                             setShowUserMenu(false);
                         }
                     }
+                    // Check if click is outside jobs menu dropdown
+                    if (showJobsMenu) {
+                        const jobsMenu = document.querySelector('[data-jobs-menu]');
+                        if (jobsMenu && !jobsMenu.contains(e.target)) {
+                            setShowJobsMenu(false);
+                        }
+                    }
+                    // Check if click is outside resume menu dropdown
+                    if (showResumeMenu) {
+                        const resumeMenu = document.querySelector('[data-resume-menu]');
+                        if (resumeMenu && !resumeMenu.contains(e.target)) {
+                            setShowResumeMenu(false);
+                        }
+                    }
                 };
                 
-                if (showCopyDropdown || showExportDropdown || showUserMenu) {
+                if (showCopyDropdown || showExportDropdown || showUserMenu || showJobsMenu || showResumeMenu) {
                     document.addEventListener('mousedown', handleClickOutside);
                     return () => document.removeEventListener('mousedown', handleClickOutside);
                 }
-            }, [showCopyDropdown, showExportDropdown, showUserMenu]);
+            }, [showCopyDropdown, showExportDropdown, showUserMenu, showJobsMenu, showResumeMenu]);
             
             // Load recent job descriptions and resumes on mount
             useEffect(() => {
@@ -5664,6 +5680,135 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                             <span className="hidden sm:inline">Dashboard</span>
                                         </button>
                                         
+                                        {/* Resume Button with Dropdown */}
+                                        <div className="relative" data-resume-menu>
+                                            <button
+                                                onClick={() => setShowResumeMenu(!showResumeMenu)}
+                                                className={`px-3 py-1.5 text-xs rounded-lg transition-colors min-h-[36px] flex items-center gap-1.5 ${
+                                                    isDark 
+                                                        ? 'bg-violet-600 text-white hover:bg-violet-700' 
+                                                        : 'bg-violet-600 text-white hover:bg-violet-700'
+                                                }`}
+                                                aria-label="Resume menu"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                <span className="hidden sm:inline">Resume</span>
+                                                <svg className={`w-3 h-3 transition-transform ${showResumeMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                            
+                                            {/* Resume Dropdown Menu */}
+                                            {showResumeMenu && (
+                                                <div className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-50">
+                                                    <div className="py-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                setShowResumeMenu(false);
+                                                                setShowResumeBuilder(true);
+                                                                trackEvent('resume_builder_opened');
+                                                            }}
+                                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                            </svg>
+                                                            Builder
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setShowResumeMenu(false);
+                                                                setShowSavedResumes(!showSavedResumes);
+                                                                trackEvent('saved_resumes_toggled');
+                                                            }}
+                                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                                            </svg>
+                                                            Saved ({savedResumes.length})
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        {/* Jobs Button with Dropdown */}
+                                        <div className="relative" data-jobs-menu>
+                                            <button
+                                                onClick={() => setShowJobsMenu(!showJobsMenu)}
+                                                className={`px-3 py-1.5 text-xs rounded-lg transition-colors min-h-[36px] flex items-center gap-1.5 ${
+                                                    isDark 
+                                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                                                        : 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                                }`}
+                                                aria-label="Jobs menu"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                </svg>
+                                                <span className="hidden sm:inline">Jobs</span>
+                                                <svg className={`w-3 h-3 transition-transform ${showJobsMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                            
+                                            {/* Jobs Dropdown Menu */}
+                                            {showJobsMenu && (
+                                                <div className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-50">
+                                                    <div className="py-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                setShowJobsMenu(false);
+                                                                setShowInterviewPrep(true);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                            Interview Prep
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setShowJobsMenu(false);
+                                                                setShowJobPortals(true);
+                                                                trackEvent('job_portals_opened');
+                                                            }}
+                                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                            </svg>
+                                                            Jobs
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        {/* Feedback Button - Always Visible */}
+                                        <button
+                                            onClick={() => {
+                                                setShowFeedbackModal(true);
+                                                trackEvent('feedback_modal_opened');
+                                            }}
+                                            aria-label="Send feedback"
+                                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors min-h-[36px] flex items-center gap-1.5 ${
+                                                isDark 
+                                                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                                            }`}
+                                            title="Send feedback or suggestions"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                            </svg>
+                                            <span className="hidden sm:inline">Feedback</span>
+                                        </button>
+                                        
                                         {/* User Info with Dropdown */}
                                         <div className="relative" data-user-menu>
                                             <button
@@ -5686,71 +5831,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                             {showUserMenu && (
                                                 <div className="absolute right-0 mt-2 w-56 rounded-lg shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-50 max-h-[80vh] overflow-y-auto">
                                                     <div className="py-1">
-                                                        {/* Navigation Items */}
-                                                        <button
-                                                            onClick={() => {
-                                                                setShowUserMenu(false);
-                                                                setShowResumeBuilder(true);
-                                                                trackEvent('resume_builder_opened');
-                                                            }}
-                                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                            </svg>
-                                                            Builder
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setShowUserMenu(false);
-                                                                setShowSavedResumes(!showSavedResumes);
-                                                                trackEvent('saved_resumes_toggled');
-                                                            }}
-                                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                                            </svg>
-                                                            Saved ({savedResumes.length})
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setShowUserMenu(false);
-                                                                setShowInterviewPrep(true);
-                                                            }}
-                                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                            </svg>
-                                                            Interview Prep
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setShowUserMenu(false);
-                                                                setShowJobPortals(true);
-                                                                trackEvent('job_portals_opened');
-                                                            }}
-                                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                            </svg>
-                                                            Jobs
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setShowUserMenu(false);
-                                                                setShowFeedbackModal(true);
-                                                                trackEvent('feedback_modal_opened');
-                                                            }}
-                                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                                            </svg>
-                                                            Feedback
-                                                        </button>
+                                                        {/* User Menu Items */}
                                                         <button
                                                             onClick={() => {
                                                                 setShowUserMenu(false);
