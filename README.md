@@ -4,6 +4,7 @@ ResumeForge is a Progressive Web App (PWA) that uses AI to tailor your resume se
 
 ## Features
 
+### Core Features
 - 🤖 **AI-Powered Resume Tailoring** - Uses Google Gemini 2.5 Flash to tailor resume sections to job descriptions
 - 📊 **Keyword Analysis** - Identifies matched and missing keywords with match percentage scores
 - 💡 **Improvement Tips** - Provides actionable recommendations categorized by priority (high/medium/low)
@@ -12,6 +13,21 @@ ResumeForge is a Progressive Web App (PWA) that uses AI to tailor your resume se
 - 💾 **Save & Manage** - Save tailored resumes to your account for easy access
 - 💳 **Credit-Based System** - Pay-per-use model ($0.50 per generation) with free trial for new users
 - 📱 **Progressive Web App** - Works offline and can be installed on mobile devices
+
+### Advanced Features
+- 🎨 **Resume Templates** - 7 pre-designed templates (3 layouts + 4 industry-specific)
+- ✨ **AI Real-Time Suggestions** - Grammar, spelling, style, keyword, and ATS suggestions as you type
+- 💼 **Job Portals Integration** - Quick Apply with formatted resumes for LinkedIn, Indeed, ZipRecruiter
+- 📋 **Application Tracker** - Track job applications with status management (Applied, Interview, Offer, Rejected)
+- 📚 **Resume Versioning** - Save and manage multiple versions of tailored resumes per application
+- ⏰ **Follow-up Reminders** - Set reminders for application follow-ups and interview dates
+- 🎯 **Interview Preparation** - Mock interview practice with AI-powered answer coaching
+- 📊 **Enhanced Analytics Dashboard** - Application success rates, interview conversion metrics, resume performance tracking, and industry benchmarking
+- 📄 **Multi-Format Support** - Upload PDF, DOCX, Pages, TXT; Export to PDF, Word, Pages, Google Docs
+- 🔄 **Offline Support** - IndexedDB integration for offline resume saving with automatic sync
+- ⌨️ **Keyboard Shortcuts** - Power user shortcuts for faster workflow
+- 🎨 **Resume Builder** - Drag-and-drop section reordering, rich text editor, logo upload, custom colors and fonts
+- 🔍 **Job Matching** - AI-powered job recommendations based on your resume with salary estimates
 
 ## Tech Stack
 
@@ -335,6 +351,29 @@ firebase functions:config:get
 For issues or questions, please [create an issue](link-to-issues) or contact [your-email].
 
 ## Changelog
+
+### v2.0.0 (Current)
+- ✅ Enhanced Analytics Dashboard with application success tracking
+- ✅ Interview preparation with mock interviews and AI coaching
+- ✅ Application management with versioning and reminders
+- ✅ Comprehensive error handling and error boundaries
+- ✅ Performance optimizations and code improvements
+- ✅ Industry benchmarking and resume performance metrics
+
+### v1.5.0
+- ✅ Resume Templates (7 templates)
+- ✅ AI Real-Time Suggestions
+- ✅ Job Portals Integration
+- ✅ Resume Builder enhancements (drag-and-drop, rich text, logo, colors)
+- ✅ Job Matching with AI recommendations
+
+### v1.2.0
+- ✅ Multi-format file support (PDF, DOCX, Pages)
+- ✅ Enhanced export options (PDF, Word, Pages, Google Docs)
+- ✅ Offline support with IndexedDB
+- ✅ Rate limiting for API calls
+- ✅ Keyboard shortcuts
+- ✅ Resume preview and copy format options
 
 ### v1.0.0
 - Initial release

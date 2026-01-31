@@ -4,6 +4,11 @@ module.exports = {
     "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  safelist: [
+    // Ensure Find Job Matches button gradient is always in build (matches other 3 buttons)
+    'from-green-600', 'to-teal-600', 'hover:from-green-700', 'hover:to-teal-700',
+    'disabled:from-slate-400', 'disabled:to-slate-400', 'focus:ring-green-500',
+  ],
   darkMode: 'class',
   theme: {
     extend: {

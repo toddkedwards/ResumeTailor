@@ -684,6 +684,13 @@ Task:
 3. Provide detailed improvement tips for better ATS optimization
 4. Identify specific changes made (what was added, modified, or improved)
 
+FORMATTING PRESERVATION - CRITICAL:
+- Preserve the original resume's structure: section headings, line breaks, paragraph breaks, and list formatting
+- If the original uses bullet points (• or list items), keep that structure; do not merge into paragraphs
+- If the original has distinct sections (Contact, Summary, Experience, Education), keep those as separate blocks with line breaks
+- Never introduce the words "bullet", "bulletpoint", or "bullet point" as text—always use the • character
+- Output plain text only: no markdown (no **, *, #, -, __), no HTML
+
 Return your response as a JSON object with this exact structure:
 {
   "tailoredResume": "The improved, tailored version of the resume section",
