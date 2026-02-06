@@ -953,6 +953,7 @@
             const [draggedSection, setDraggedSection] = useState(null);
             const [showJobMatching, setShowJobMatching] = useState(false);
             const [jobMatches, setJobMatches] = useState([]);
+            const [jobSearchLocation, setJobSearchLocation] = useState('');
             const [jobMatchingLoading, setJobMatchingLoading] = useState(false);
             const [showDashboard, setShowDashboard] = useState(false);
             const [showTemplates, setShowTemplates] = useState(false);
@@ -2059,10 +2060,11 @@
                             setShowUserMenu(false);
                         }
                     }
-                    // Check if click is outside jobs menu dropdown
+                    // Check if click is outside jobs menu dropdown (ignore clicks that open Job Tracker)
                     if (showJobsMenu) {
                         const jobsMenu = document.querySelector('[data-jobs-menu]');
-                        if (jobsMenu && !jobsMenu.contains(e.target)) {
+                        const openingTracker = e.target.closest && e.target.closest('[data-open-job-tracker]');
+                        if (jobsMenu && !openingTracker && !jobsMenu.contains(e.target)) {
                             setShowJobsMenu(false);
                         }
                     }
@@ -2080,6 +2082,22 @@
                     return () => document.removeEventListener('mousedown', handleClickOutside);
                 }
             }, [showCopyDropdown, showExportDropdown, showUserMenu, showJobsMenu, showResumeMenu]);
+            
+            // Job Tracker: open from Jobs menu via document capture so it always fires before click-outside
+            useEffect(() => {
+                if (!showJobsMenu) return;
+                const openTracker = (e) => {
+                    if (e.target.closest && e.target.closest('[data-open-job-tracker]')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowApplicationTrackerModal(true);
+                        setShowJobsMenu(false);
+                        try { trackEvent('application_tracker_opened'); } catch (_) {}
+                    }
+                };
+                document.addEventListener('mousedown', openTracker, true);
+                return () => document.removeEventListener('mousedown', openTracker, true);
+            }, [showJobsMenu]);
             
             // Load recent job descriptions and resumes on mount
             useEffect(() => {
@@ -4235,9 +4253,9 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                     
                     const result = await findJobMatchesFn({
                         resumeText: resumeText.trim(),
-                        location: '', // Can be enhanced with user input
-                        jobType: '', // Can be enhanced with user input
-                        industry: '' // Can be enhanced with user input
+                        location: (jobSearchLocation || '').trim(),
+                        jobType: '',
+                        industry: ''
                     });
                     
                     if (!result.data || !result.data.success) {
@@ -5845,9 +5863,21 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                                 </svg>
                                             </button>
                                             
-                                            {/* Jobs Dropdown Menu */}
+                                            {/* Jobs Dropdown Menu - capture phase opens Job Tracker before click-outside */}
                                             {showJobsMenu && (
-                                                <div className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-50">
+                                                <div
+                                                    className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-50"
+                                                    onMouseDownCapture={(e) => {
+                                                        const openTracker = e.target.closest('[data-open-job-tracker]');
+                                                        if (openTracker) {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setShowApplicationTrackerModal(true);
+                                                            setShowJobsMenu(false);
+                                                            try { trackEvent('application_tracker_opened'); } catch (_) {}
+                                                        }
+                                                    }}
+                                                >
                                                     <div className="py-1">
                                                         <button
                                                             onClick={() => {
@@ -5876,14 +5906,14 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            onMouseDown={(e) => {
+                                                            data-open-job-tracker
+                                                            onClick={(e) => {
                                                                 e.preventDefault();
                                                                 e.stopPropagation();
                                                                 setShowApplicationTrackerModal(true);
                                                                 setShowJobsMenu(false);
-                                                                trackEvent('application_tracker_opened');
+                                                                try { trackEvent('application_tracker_opened'); } catch (_) {}
                                                             }}
-                                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                                             className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                                                         >
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -10780,20 +10810,39 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                     ? 'bg-slate-800 border border-slate-700' 
                                     : 'bg-white'
                             }`} onClick={(e) => e.stopPropagation()}>
-                                <div className="flex justify-between items-center mb-6">
+                                <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
                                     <h2 className={`text-3xl font-bold ${
                                         isDark ? 'text-white' : 'text-slate-900'
                                     }`}>
                                         💼 Job Portals & Quick Apply
                                     </h2>
-                                    <button
-                                        onClick={() => setShowJobPortals(false)}
-                                        className={isDark ? 'text-slate-300 hover:text-white' : 'text-slate-400 hover:text-slate-600'}
-                                    >
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowJobPortals(false);
+                                                setShowApplicationTrackerModal(true);
+                                                try { trackEvent('application_tracker_opened'); } catch (_) {}
+                                            }}
+                                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
+                                                isDark ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-teal-500 text-white hover:bg-teal-600'
+                                            }`}
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                            </svg>
+                                            Job Tracker
+                                        </button>
+                                        <button
+                                            onClick={() => setShowJobPortals(false)}
+                                            className={isDark ? 'text-slate-300 hover:text-white' : 'text-slate-400 hover:text-slate-600'}
+                                            aria-label="Close"
+                                        >
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
                                 
                                 <p className={`mb-6 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
@@ -11954,12 +12003,24 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                         </div>
                                     ) : jobMatches.length > 0 ? (
                                         <div className="space-y-4">
-                                            <div className={`p-4 rounded-xl ${
+                                            <div className={`flex flex-wrap items-center gap-2 p-4 rounded-xl ${
                                                 isDark ? 'bg-emerald-900/20 border border-emerald-500' : 'bg-emerald-50 border border-emerald-200'
                                             }`}>
                                                 <p className={`font-semibold ${isDark ? 'text-emerald-200' : 'text-emerald-700'}`}>
                                                     Found {jobMatches.length} job matches based on your resume!
                                                 </p>
+                                                <label className={`flex items-center gap-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                    Location (for search links):
+                                                    <input
+                                                        type="text"
+                                                        placeholder="e.g. Remote, Denver CO"
+                                                        value={jobSearchLocation}
+                                                        onChange={(e) => setJobSearchLocation(e.target.value)}
+                                                        className={`w-40 px-2 py-1 rounded border text-sm ${
+                                                            isDark ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
+                                                        }`}
+                                                    />
+                                                </label>
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 {jobMatches.map((job, idx) => (
@@ -12042,7 +12103,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                                             }`}>{job.whyMatch || 'No explanation available'}</p>
                                                         </div>
                                                         
-                                                        <div className={`p-3 rounded-lg ${
+                                                        <div className={`p-3 rounded-lg mb-3 ${
                                                             isDark ? 'bg-slate-800' : 'bg-white'
                                                         }`}>
                                                             <p className={`text-sm font-semibold mb-1 ${
@@ -12051,6 +12112,58 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                                             <p className={`text-sm ${
                                                                 isDark ? 'text-slate-400' : 'text-slate-600'
                                                             }`}>{job.companyNotes || 'No company research available'}</p>
+                                                        </div>
+                                                        
+                                                        {/* Search for this job + Add to tracker */}
+                                                        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-600">
+                                                            <span className={`text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Search for this job:</span>
+                                                            <a
+                                                                href={`https://www.indeed.com/jobs?q=${encodeURIComponent((job.title || '') + ' ' + (job.companyType || ''))}${jobSearchLocation ? '&l=' + encodeURIComponent(jobSearchLocation) : ''}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                                                    isDark ? 'bg-slate-600 text-white hover:bg-slate-500' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                                                }`}
+                                                            >
+                                                                Indeed
+                                                            </a>
+                                                            <a
+                                                                href={`https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(job.title || '')}${jobSearchLocation ? '&location=' + encodeURIComponent(jobSearchLocation) : ''}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                                                    isDark ? 'bg-slate-600 text-white hover:bg-slate-500' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                                                }`}
+                                                            >
+                                                                LinkedIn
+                                                            </a>
+                                                            <a
+                                                                href={`https://www.google.com/search?q=${encodeURIComponent((job.title || '') + ' jobs' + (jobSearchLocation ? ' ' + jobSearchLocation : ''))}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                                                    isDark ? 'bg-slate-600 text-white hover:bg-slate-500' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                                                }`}
+                                                            >
+                                                                Google
+                                                            </a>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    trackJobApplication({
+                                                                        jobTitle: job.title || 'Untitled Position',
+                                                                        company: job.companyType || 'To search',
+                                                                        platform: 'other'
+                                                                    });
+                                                                    try { trackEvent('job_tracker_add_from_ai_match', { title: job.title }); } catch (_) {}
+                                                                }}
+                                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                                                                    isDark ? 'bg-teal-600 text-white hover:bg-teal-500' : 'bg-teal-500 text-white hover:bg-teal-600'
+                                                                }`}
+                                                                title="Add to Job Tracker"
+                                                            >
+                                                                📋 Add to Job Tracker
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -12063,6 +12176,18 @@ IMPORTANT: Return ONLY valid JSON, no additional text.`;
                                             }`}>
                                                 Find job matches based on your resume
                                             </p>
+                                            <label className={`block text-sm mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                Location (optional, for AI and search links):
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Remote, Denver CO"
+                                                value={jobSearchLocation}
+                                                onChange={(e) => setJobSearchLocation(e.target.value)}
+                                                className={`w-64 max-w-full mx-auto mb-4 px-3 py-2 rounded-lg border text-sm ${
+                                                    isDark ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
+                                                }`}
+                                            />
                                             <button
                                                 onClick={handleFindJobMatches}
                                                 className="px-6 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-semibold hover:from-violet-700 hover:to-purple-700 transition-all duration-300"
